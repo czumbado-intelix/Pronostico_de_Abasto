@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -15,6 +15,7 @@ using PronosticosAbasto.Core.Analysis;
 using SkiaSharp;
 using PronosticosAbasto.Core.IO;
 using PronosticosAbasto.Core.Storage;
+using PronosticosAbasto.Core.Tables;
 using PronosticosAbasto.Services;
 using Windows.Storage;
 
@@ -63,10 +64,12 @@ public partial class MainPageViewModel : ObservableObject
     private IReadOnlyList<ZoneDetailRowViewModel> _zoneDetails = Array.Empty<ZoneDetailRowViewModel>();
     private IReadOnlyList<WarehouseComparisonRowViewModel> _allWarehouseComparisonRows = Array.Empty<WarehouseComparisonRowViewModel>();
     private IReadOnlyList<WarehouseComparisonRowViewModel> _warehouseComparisonRows = Array.Empty<WarehouseComparisonRowViewModel>();
-    private TextSortState? _tableTextSort;
-    private TextSortState? _transferTextSort;
-    private TextSortState? _expedicionTextSort;
-    private TextSortState? _warehouseComparisonTextSort;
+    // Declaradas en MainPageViewModel.Tables.cs. Guardan tambien el orden vigente
+    // de cada tabla.
+    private readonly TableView<ArticleResultRowViewModel> _tableColumns;
+    private readonly TableView<TransferRowViewModel> _transferColumns;
+    private readonly TableView<ExpedicionRowViewModel> _expedicionColumns;
+    private readonly TableView<WarehouseComparisonRowViewModel> _warehouseComparisonColumns;
 
     public MainPageViewModel()
         : this(
@@ -157,6 +160,11 @@ public partial class MainPageViewModel : ObservableObject
         ComparisonServicaFilter = new TextColumnFilter(FilterWarehouseComparisonRows);
         ComparisonCoverageFilter = new TextColumnFilter(FilterWarehouseComparisonRows);
         ComparisonComentariosFilter = new TextColumnFilter(FilterWarehouseComparisonRows);
+
+        _tableColumns = BuildTableColumns();
+        _transferColumns = BuildTransferColumns();
+        _expedicionColumns = BuildExpedicionColumns();
+        _warehouseComparisonColumns = BuildWarehouseComparisonColumns();
 
         ApplySessionToUi();
         RefreshTransitRows();
@@ -313,13 +321,7 @@ public partial class MainPageViewModel : ObservableObject
 
     public bool HasWarehouseComparisonRows => WarehouseComparisonRows.Count > 0;
 
-    public bool HasWarehouseComparisonFilters =>
-        ComparisonArticuloFilter.IsActive ||
-        ComparisonDescripcionFilter.IsActive ||
-        ComparisonOloFilter.IsActive ||
-        ComparisonServicaFilter.IsActive ||
-        ComparisonCoverageFilter.IsActive ||
-        ComparisonComentariosFilter.IsActive;
+    public bool HasWarehouseComparisonFilters => _warehouseComparisonColumns.AnyFilterActive;
 
     [ObservableProperty]
     public partial string SelectedWarehouseComparisonView { get; set; } = "Tabla";
@@ -444,22 +446,7 @@ public partial class MainPageViewModel : ObservableObject
                 row.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
         }
 
-        query = query.Where(row =>
-            TrasladosArticuloFilter.Matches(row.ArticleDescriptionText) &&
-            TrasladosDescripcionFilter.Matches(row.Description) &&
-            TrasladosCoberturaFilter.Matches(row.CoverageText) &&
-            TrasladosPrincipalFilter.Matches(row.PrincipalInventoryText) &&
-            TrasladosStockExtFilter.Matches(row.SatelliteAvailableText) &&
-            TrasladosTransitoFilter.Matches(row.PendingTransitText) &&
-            TrasladosTraerFilter.Matches(row.TransferSuggestionText) &&
-            TrasladosPalletCountFilter.Matches(row.SuggestedPalletCountText) &&
-            TrasladosPaletsFilter.Matches(row.SuggestedPalletNumbersText) &&
-            TrasladosTarimaFilter.Matches(row.TarimaSizeText) &&
-            TrasladosAlistadoFilter.Matches(row.SatellitePreparedText) &&
-            TrasladosZonasFilter.Matches(row.SatelliteZonesText) &&
-            TrasladosEstadoFilter.Matches(row.StatusLabel));
-
-        var visibleRows = ApplyTransferTextSort(query).ToList();
+        var visibleRows = _transferColumns.Apply(query);
         TransferRows = visibleRows;
         TransferVisibleTotal = visibleRows.Count;
     }
@@ -476,15 +463,6 @@ public partial class MainPageViewModel : ObservableObject
             SelectedTransferRow = null;
         }
     }
-
-    private static bool MatchesStatusOption(CoverageStatus status, StatusFilterOption filter) =>
-        filter switch
-        {
-            StatusFilterOption.Critical => status == CoverageStatus.Critical,
-            StatusFilterOption.Warning => status == CoverageStatus.Warning,
-            StatusFilterOption.Healthy => status == CoverageStatus.Healthy,
-            _ => true,
-        };
 
     private void FilterExpedicionRows()
     {
@@ -516,26 +494,7 @@ public partial class MainPageViewModel : ObservableObject
                 row.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
         }
 
-        var visibleRows = query
-            .Where(row =>
-                ExpExpedicionFilter.Matches(row.ExpeditionNumber) &&
-                ExpArticuloFilter.Matches(row.ArticleDescriptionText) &&
-                ExpDescripcionFilter.Matches(row.Description) &&
-                ExpCantidadFilter.Matches(row.DemandText) &&
-                ExpPrincipalFilter.Matches(row.PrincipalInventoryText) &&
-                ExpExternasFilter.Matches(row.SatelliteAvailableText) &&
-                ExpTransitoFilter.Matches(row.PendingTransitText) &&
-                ExpTraerFilter.Matches(row.TransferSuggestionText) &&
-                ExpPalletCountFilter.Matches(row.SuggestedPalletCountText) &&
-                ExpPaletsFilter.Matches(row.SuggestedPalletNumbersText) &&
-                ExpTarimaFilter.Matches(row.TarimaSizeText) &&
-                ExpAlistadoFilter.Matches(row.SatellitePreparedText) &&
-                ExpZonasFilter.Matches(row.SatelliteZonesText) &&
-                ExpPendienteFilter.Matches(row.RemainingShortageText))
-            .ToArray();
-
-        ExpedicionRows = ApplyExpedicionTextSort(visibleRows)
-            .ToList();
+        ExpedicionRows = _expedicionColumns.Apply(query);
         ExpedicionesLineCount = ExpedicionRows.Count;
     }
 
@@ -548,18 +507,10 @@ public partial class MainPageViewModel : ObservableObject
 
         RefreshWarehouseComparisonFilterOptions(_allWarehouseComparisonRows);
 
-        var visibleRows = ApplyWarehouseComparisonTextSort(_allWarehouseComparisonRows
-            .Where(row =>
-                ComparisonArticuloFilter.Matches(row.ArticleDescriptionText) &&
-                ComparisonDescripcionFilter.Matches(row.Description) &&
-                ComparisonOloFilter.Matches(row.OloQuantityText) &&
-                ComparisonServicaFilter.Matches(row.ServicaQuantityText) &&
-                ComparisonCoverageFilter.Matches(row.CoverageText) &&
-                ComparisonComentariosFilter.Matches(row.CommentText)))
-            .ToArray();
+        var visibleRows = _warehouseComparisonColumns.Apply(_allWarehouseComparisonRows);
 
         WarehouseComparisonRows = visibleRows;
-        WarehouseComparisonVisibleTotal = visibleRows.Length;
+        WarehouseComparisonVisibleTotal = visibleRows.Count;
         RefreshWarehouseComparisonCoverageChart(visibleRows);
         OnPropertyChanged(nameof(HasWarehouseComparisonFilters));
         ClearWarehouseComparisonFiltersCommand.NotifyCanExecuteChanged();
@@ -670,253 +621,55 @@ public partial class MainPageViewModel : ObservableObject
         return Math.Clamp(bucket, 0, maxPeriod);
     }
 
-    private void RefreshTransferFilterOptions(IReadOnlyList<TransferRowViewModel> rows)
-    {
-        TrasladosArticuloFilter.SetOptions(rows.Select(row => row.ArticleDescriptionText));
-        TrasladosDescripcionFilter.SetOptions(rows.Select(row => row.Description));
-        TrasladosCoberturaFilter.SetOptions(rows.Select(row => row.CoverageText));
-        TrasladosPrincipalFilter.SetOptions(rows.Select(row => row.PrincipalInventoryText));
-        TrasladosStockExtFilter.SetOptions(rows.Select(row => row.SatelliteAvailableText));
-        TrasladosTransitoFilter.SetOptions(rows.Select(row => row.PendingTransitText));
-        TrasladosTraerFilter.SetOptions(rows.Select(row => row.TransferSuggestionText));
-        TrasladosPalletCountFilter.SetOptions(rows.Select(row => row.SuggestedPalletCountText));
-        TrasladosPaletsFilter.SetOptions(rows.Select(row => row.SuggestedPalletNumbersText));
-        TrasladosTarimaFilter.SetOptions(rows.Select(row => row.TarimaSizeText));
-        TrasladosAlistadoFilter.SetOptions(rows.Select(row => row.SatellitePreparedText));
-        TrasladosZonasFilter.SetOptions(rows.Select(row => row.SatelliteZonesText));
-        TrasladosEstadoFilter.SetOptions(rows.Select(row => row.StatusLabel));
-    }
+    private void RefreshTransferFilterOptions(IReadOnlyList<TransferRowViewModel> rows) =>
+        _transferColumns.RefreshOptions(rows);
 
-    private void RefreshExpedicionFilterOptions(IReadOnlyList<ExpedicionRowViewModel> rows)
-    {
-        ExpExpedicionFilter.SetOptions(rows.Select(row => row.ExpeditionNumber));
-        ExpArticuloFilter.SetOptions(rows.Select(row => row.ArticleDescriptionText));
-        ExpDescripcionFilter.SetOptions(rows.Select(row => row.Description));
-        ExpCantidadFilter.SetOptions(rows.Select(row => row.DemandText));
-        ExpPrincipalFilter.SetOptions(rows.Select(row => row.PrincipalInventoryText));
-        ExpExternasFilter.SetOptions(rows.Select(row => row.SatelliteAvailableText));
-        ExpTransitoFilter.SetOptions(rows.Select(row => row.PendingTransitText));
-        ExpTraerFilter.SetOptions(rows.Select(row => row.TransferSuggestionText));
-        ExpPalletCountFilter.SetOptions(rows.Select(row => row.SuggestedPalletCountText));
-        ExpPaletsFilter.SetOptions(rows.Select(row => row.SuggestedPalletNumbersText));
-        ExpTarimaFilter.SetOptions(rows.Select(row => row.TarimaSizeText));
-        ExpAlistadoFilter.SetOptions(rows.Select(row => row.SatellitePreparedText));
-        ExpZonasFilter.SetOptions(rows.Select(row => row.SatelliteZonesText));
-        ExpPendienteFilter.SetOptions(rows.Select(row => row.RemainingShortageText));
-    }
+    private void RefreshExpedicionFilterOptions(IReadOnlyList<ExpedicionRowViewModel> rows) =>
+        _expedicionColumns.RefreshOptions(rows);
 
-    private void RefreshWarehouseComparisonFilterOptions(IReadOnlyList<WarehouseComparisonRowViewModel> rows)
-    {
-        ComparisonArticuloFilter.SetOptions(rows.Select(row => row.ArticleDescriptionText));
-        ComparisonDescripcionFilter.SetOptions(rows.Select(row => row.Description));
-        ComparisonOloFilter.SetOptions(rows.Select(row => row.OloQuantityText));
-        ComparisonServicaFilter.SetOptions(rows.Select(row => row.ServicaQuantityText));
-        ComparisonCoverageFilter.SetOptions(rows.Select(row => row.CoverageText));
-        ComparisonComentariosFilter.SetOptions(rows.Select(row => row.CommentText));
-    }
+    private void RefreshWarehouseComparisonFilterOptions(IReadOnlyList<WarehouseComparisonRowViewModel> rows) =>
+        _warehouseComparisonColumns.RefreshOptions(rows);
 
     [RelayCommand]
-    private void SortTextColumnAscending(string? request) => SortTextColumn(request, ascending: true);
+    private void SortColumnAscending(object? filter) => SortColumn(filter, ascending: true);
 
     [RelayCommand]
-    private void SortTextColumnDescending(string? request) => SortTextColumn(request, ascending: false);
+    private void SortColumnDescending(object? filter) => SortColumn(filter, ascending: false);
 
-    private void SortTextColumn(string? request, bool ascending)
+    /// <summary>
+    /// Ordena la tabla dueña del filtro recibido.
+    /// </summary>
+    /// <remarks>
+    /// El encabezado manda su propia instancia de filtro, no una clave de texto
+    /// tipo "Table:Difference". Antes esas claves vivian sueltas en el XAML y un
+    /// typo no fallaba ni en compilacion ni en runtime: la columna simplemente
+    /// dejaba de ordenar. Ahora la unica forma de pedir un orden es con un filtro
+    /// que realmente pertenece a alguna tabla.
+    /// </remarks>
+    private void SortColumn(object? filter, bool ascending)
     {
-        if (string.IsNullOrWhiteSpace(request))
+        if (filter is not IColumnValueFilter columnFilter)
         {
             return;
         }
 
-        var parts = request.Split(':', 2, StringSplitOptions.TrimEntries);
-        if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[1]))
+        if (_tableColumns.TrySetSort(columnFilter, ascending))
         {
-            return;
+            ApplyFilters();
         }
-
-        var state = new TextSortState(parts[1], ascending);
-        switch (parts[0])
+        else if (_transferColumns.TrySetSort(columnFilter, ascending))
         {
-            case "Table":
-                _tableTextSort = state;
-                ApplyFilters();
-                break;
-            case "Transfer":
-                _transferTextSort = state;
-                FilterTransferRows();
-                break;
-            case "Expedicion":
-                _expedicionTextSort = state;
-                FilterExpedicionRows();
-                break;
-            case "Comparison":
-                _warehouseComparisonTextSort = state;
-                FilterWarehouseComparisonRows();
-                break;
+            FilterTransferRows();
+        }
+        else if (_expedicionColumns.TrySetSort(columnFilter, ascending))
+        {
+            FilterExpedicionRows();
+        }
+        else if (_warehouseComparisonColumns.TrySetSort(columnFilter, ascending))
+        {
+            FilterWarehouseComparisonRows();
         }
     }
-
-    private IEnumerable<ArticleResultRowViewModel> ApplyTableTextSort(IEnumerable<ArticleResultRowViewModel> rows)
-    {
-        if (_tableTextSort is not { } sort)
-        {
-            return rows;
-        }
-
-        switch (sort.Column)
-        {
-            case "Forecast":
-                return ApplyComparableSort(rows, row => row.ForecastQuantity, sort.Ascending);
-            case "Principal":
-                return ApplyComparableSort(rows, row => row.PrincipalInventoryQuantity, sort.Ascending);
-            case "Difference":
-                return ApplyComparableSort(rows, row => row.Difference, sort.Ascending);
-            case "Satellite":
-                return ApplyComparableSort(rows, row => row.SatelliteInventoryQuantity, sort.Ascending);
-        }
-
-        Func<ArticleResultRowViewModel, string> selector = sort.Column switch
-        {
-            "Article" => row => row.ArticleDescriptionText,
-            "Status" => row => row.StatusLabel,
-            _ => row => row.ArticleDescriptionText,
-        };
-
-        return ApplyTextSort(rows, selector, sort.Ascending);
-    }
-
-    private IEnumerable<TransferRowViewModel> ApplyTransferTextSort(IEnumerable<TransferRowViewModel> rows)
-    {
-        if (_transferTextSort is not { } sort)
-        {
-            return rows;
-        }
-
-        switch (sort.Column)
-        {
-            case "Coverage":
-                return ApplyNullableDecimalSort(rows, row => row.CoverageWeeksValue, sort.Ascending);
-            case "Principal":
-                return ApplyComparableSort(rows, row => row.PrincipalInventoryQuantity, sort.Ascending);
-            case "StockExt":
-                return ApplyComparableSort(rows, row => row.SatelliteAvailableQuantity, sort.Ascending);
-            case "Transito":
-                return ApplyComparableSort(rows, row => row.PendingTransitQuantity, sort.Ascending);
-            case "Traer":
-                return ApplyComparableSort(rows, row => row.TransferSuggestionQuantity, sort.Ascending);
-            case "PalletCount":
-                return ApplyComparableSort(rows, row => row.SuggestedPalletCount, sort.Ascending);
-        }
-
-        Func<TransferRowViewModel, string> selector = sort.Column switch
-        {
-            "Article" => row => row.ArticleDescriptionText,
-            "Description" => row => row.Description,
-            "Pallets" => row => row.SuggestedPalletNumbersText,
-            "Tarima" => row => row.TarimaSizeText,
-            "Alistado" => row => row.SatellitePreparedText,
-            "Zonas" => row => row.SatelliteZonesText,
-            "Status" => row => row.StatusLabel,
-            _ => row => row.ArticleDescriptionText,
-        };
-
-        return ApplyTextSort(rows, selector, sort.Ascending);
-    }
-
-    private IEnumerable<ExpedicionRowViewModel> ApplyExpedicionTextSort(IEnumerable<ExpedicionRowViewModel> rows)
-    {
-        if (_expedicionTextSort is not { } sort)
-        {
-            return rows;
-        }
-
-        switch (sort.Column)
-        {
-            case "Cantidad":
-                return ApplyComparableSort(rows, row => row.DemandQuantity, sort.Ascending);
-            case "Principal":
-                return ApplyComparableSort(rows, row => row.PrincipalQuantity, sort.Ascending);
-            case "Externas":
-                return ApplyComparableSort(rows, row => row.SatelliteQuantity, sort.Ascending);
-            case "Transito":
-                return ApplyComparableSort(rows, row => row.PendingTransitQuantity, sort.Ascending);
-            case "Traer":
-                return ApplyComparableSort(rows, row => row.TransferQuantity, sort.Ascending);
-            case "PalletCount":
-                return ApplyComparableSort(rows, row => row.SuggestedPalletCount, sort.Ascending);
-            case "Pendiente":
-                return ApplyComparableSort(rows, row => row.RemainingShortageQuantity, sort.Ascending);
-        }
-
-        Func<ExpedicionRowViewModel, string> selector = sort.Column switch
-        {
-            "Expedicion" => row => row.ExpeditionNumber,
-            "Article" => row => row.ArticleDescriptionText,
-            "Description" => row => row.Description,
-            "Pallets" => row => row.SuggestedPalletNumbersText,
-            "Tarima" => row => row.TarimaSizeText,
-            "Alistado" => row => row.SatellitePreparedText,
-            "Zonas" => row => row.SatelliteZonesText,
-            _ => row => row.ArticleDescriptionText,
-        };
-
-        return ApplyTextSort(rows, selector, sort.Ascending);
-    }
-
-    private IEnumerable<WarehouseComparisonRowViewModel> ApplyWarehouseComparisonTextSort(
-        IEnumerable<WarehouseComparisonRowViewModel> rows)
-    {
-        if (_warehouseComparisonTextSort is not { } sort)
-        {
-            return rows;
-        }
-
-        switch (sort.Column)
-        {
-            case "Olo":
-                return ApplyComparableSort(rows, row => row.OloQuantity, sort.Ascending);
-            case "Servica":
-                return ApplyComparableSort(rows, row => row.ServicaQuantity, sort.Ascending);
-            case "Coverage":
-                return ApplyNullableDecimalSort(rows, row => row.CoveragePeriods, sort.Ascending);
-        }
-
-        Func<WarehouseComparisonRowViewModel, string> selector = sort.Column switch
-        {
-            "Article" => row => row.ArticleDescriptionText,
-            "Description" => row => row.Description,
-            "Comments" => row => row.CommentText,
-            _ => row => row.ArticleDescriptionText,
-        };
-
-        return ApplyTextSort(rows, selector, sort.Ascending);
-    }
-
-    private static IEnumerable<T> ApplyTextSort<T>(
-        IEnumerable<T> rows,
-        Func<T, string> selector,
-        bool ascending) =>
-        ascending
-            ? rows.OrderBy(selector, StringComparer.OrdinalIgnoreCase)
-            : rows.OrderByDescending(selector, StringComparer.OrdinalIgnoreCase);
-
-    private static IEnumerable<T> ApplyComparableSort<T, TKey>(
-        IEnumerable<T> rows,
-        Func<T, TKey> selector,
-        bool ascending) =>
-        ascending
-            ? rows.OrderBy(selector)
-            : rows.OrderByDescending(selector);
-
-    private static IEnumerable<T> ApplyNullableDecimalSort<T>(
-        IEnumerable<T> rows,
-        Func<T, decimal?> selector,
-        bool ascending) =>
-        ascending
-            ? rows.OrderBy(row => selector(row).HasValue ? 0 : 1)
-                .ThenBy(row => selector(row).GetValueOrDefault())
-            : rows.OrderBy(row => selector(row).HasValue ? 0 : 1)
-                .ThenByDescending(row => selector(row).GetValueOrDefault());
 
     private void RefreshTransitRows()
     {
@@ -1872,12 +1625,7 @@ public partial class MainPageViewModel : ObservableObject
         !string.IsNullOrWhiteSpace(SearchText) ||
         GeneralStatusFilter != StatusFilterOption.All ||
         SatelliteStatusFilter != StatusFilterOption.All ||
-        TableArticuloFilter.IsActive ||
-        TableForecastFilter.IsActive ||
-        TablePrincipalFilter.IsActive ||
-        TableDifferenceFilter.IsActive ||
-        TableStatusFilter.IsActive ||
-        TableSatelliteFilter.IsActive ||
+        _tableColumns.AnyFilterActive ||
         ForecastFilterActive ||
         PrincipalFilterActive ||
         DiffFilterActive ||
@@ -2368,23 +2116,9 @@ public partial class MainPageViewModel : ObservableObject
 
     private void ResetExpedicionFiltersForNewLoad()
     {
-        _expedicionTextSort = null;
+        _expedicionColumns.ClearSort();
         SelectedExpedicionTab = "Todos";
-
-        ExpExpedicionFilter.ClearCommand.Execute(null);
-        ExpArticuloFilter.ClearCommand.Execute(null);
-        ExpDescripcionFilter.ClearCommand.Execute(null);
-        ExpCantidadFilter.ClearCommand.Execute(null);
-        ExpPrincipalFilter.ClearCommand.Execute(null);
-        ExpExternasFilter.ClearCommand.Execute(null);
-        ExpTransitoFilter.ClearCommand.Execute(null);
-        ExpTraerFilter.ClearCommand.Execute(null);
-        ExpPalletCountFilter.ClearCommand.Execute(null);
-        ExpPaletsFilter.ClearCommand.Execute(null);
-        ExpTarimaFilter.ClearCommand.Execute(null);
-        ExpAlistadoFilter.ClearCommand.Execute(null);
-        ExpZonasFilter.ClearCommand.Execute(null);
-        ExpPendienteFilter.ClearCommand.Execute(null);
+        _expedicionColumns.ClearFilters();
     }
 
     private async Task RefreshExpedicionesAnalysisAsync()
@@ -3228,13 +2962,8 @@ public partial class MainPageViewModel : ObservableObject
 
     private void ResetWarehouseComparisonFiltersForNewLoad()
     {
-        _warehouseComparisonTextSort = null;
-        ComparisonArticuloFilter.ClearCommand.Execute(null);
-        ComparisonDescripcionFilter.ClearCommand.Execute(null);
-        ComparisonOloFilter.ClearCommand.Execute(null);
-        ComparisonServicaFilter.ClearCommand.Execute(null);
-        ComparisonCoverageFilter.ClearCommand.Execute(null);
-        ComparisonComentariosFilter.ClearCommand.Execute(null);
+        _warehouseComparisonColumns.ClearSort();
+        _warehouseComparisonColumns.ClearFilters();
     }
 
     private void ClearColumnRanges()
@@ -3461,8 +3190,10 @@ public partial class MainPageViewModel : ObservableObject
 
         RefreshTableFilterOptions(_allResults);
 
-        var visibleResults = ApplyTableTextSort(_allResults
-            .Where(MatchesColumnFilters))
+        // MatchesColumnFilters cubre ademas los rangos numericos y el semaforo,
+        // que no son columnas del panel tipo Excel.
+        var visibleResults = _tableColumns
+            .ApplySort(_allResults.Where(MatchesColumnFilters))
             .ToArray();
 
         var visibleCodes = visibleResults
@@ -3477,15 +3208,8 @@ public partial class MainPageViewModel : ObservableObject
         UpdateFilteredPresentation(filteredAnalysis, visibleResults, preserveSelection);
     }
 
-    private void RefreshTableFilterOptions(IReadOnlyList<ArticleResultRowViewModel> rows)
-    {
-        TableArticuloFilter.SetOptions(rows.Select(row => row.ArticleDescriptionText));
-        TableForecastFilter.SetOptions(rows.Select(row => row.ForecastText));
-        TablePrincipalFilter.SetOptions(rows.Select(row => row.PrincipalInventoryText));
-        TableDifferenceFilter.SetOptions(rows.Select(row => row.DifferenceText));
-        TableStatusFilter.SetOptions(rows.Select(row => row.StatusLabel));
-        TableSatelliteFilter.SetOptions(rows.Select(row => row.SatelliteInventoryText));
-    }
+    private void RefreshTableFilterOptions(IReadOnlyList<ArticleResultRowViewModel> rows) =>
+        _tableColumns.RefreshOptions(rows);
 
     private bool MatchesColumnFilters(ArticleResultRowViewModel row)
     {
@@ -3502,12 +3226,7 @@ public partial class MainPageViewModel : ObservableObject
             && InRange(row.PrincipalInventoryQuantity, PrincipalMinText, PrincipalMaxText)
             && InRange(row.Difference, DiffMinText, DiffMaxText)
             && InRange(row.SatelliteInventoryQuantity, SatMinText, SatMaxText)
-            && TableArticuloFilter.Matches(row.ArticleDescriptionText)
-            && TableForecastFilter.Matches(row.ForecastText)
-            && TablePrincipalFilter.Matches(row.PrincipalInventoryText)
-            && TableDifferenceFilter.Matches(row.DifferenceText)
-            && TableStatusFilter.Matches(row.StatusLabel)
-            && TableSatelliteFilter.Matches(row.SatelliteInventoryText);
+            && _tableColumns.Matches(row);
     }
 
     private static bool MatchesStatus(CoverageStatus status, StatusFilterOption filter) =>
@@ -3657,6 +3376,4 @@ public partial class MainPageViewModel : ObservableObject
             return _forecastParser.Parse(stream);
         });
     }
-
-    private readonly record struct TextSortState(string Column, bool Ascending);
 }

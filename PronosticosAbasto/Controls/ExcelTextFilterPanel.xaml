@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <UserControl
     x:Class="PronosticosAbasto.Controls.ExcelTextFilterPanel"
     x:Name="Root"
@@ -13,7 +13,7 @@
             Background="Transparent"
             BorderThickness="0"
             Command="{x:Bind SortAscendingCommand, Mode=OneWay}"
-            CommandParameter="{x:Bind SortCommandParameter, Mode=OneWay}">
+            CommandParameter="{x:Bind Filter, Mode=OneWay}">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="A-Z" FontFamily="{StaticResource GuardianMonoFontFamily}" />
                 <TextBlock Text="Ordenar de A a Z" />
@@ -27,7 +27,7 @@
             Background="Transparent"
             BorderThickness="0"
             Command="{x:Bind SortDescendingCommand, Mode=OneWay}"
-            CommandParameter="{x:Bind SortCommandParameter, Mode=OneWay}">
+            CommandParameter="{x:Bind Filter, Mode=OneWay}">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="Z-A" FontFamily="{StaticResource GuardianMonoFontFamily}" />
                 <TextBlock Text="Ordenar de Z a A" />

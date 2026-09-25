@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <Page
     x:Class="PronosticosAbasto.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -506,7 +506,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar articulo" PlaceholderText="Buscar articulo o descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.TableArticuloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Table:Article" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar articulo" PlaceholderText="Buscar articulo o descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.TableArticuloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -523,7 +523,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar forecast" PlaceholderText="Buscar forecast" PanelWidth="300" Filter="{x:Bind ViewModel.TableForecastFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Table:Forecast" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar forecast" PlaceholderText="Buscar forecast" PanelWidth="300" Filter="{x:Bind ViewModel.TableForecastFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -540,7 +540,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar principal" PlaceholderText="Buscar principal" PanelWidth="300" Filter="{x:Bind ViewModel.TablePrincipalFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Table:Principal" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar principal" PlaceholderText="Buscar principal" PanelWidth="300" Filter="{x:Bind ViewModel.TablePrincipalFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -557,7 +557,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar diferencia" PlaceholderText="Buscar diferencia" PanelWidth="300" Filter="{x:Bind ViewModel.TableDifferenceFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Table:Difference" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar diferencia" PlaceholderText="Buscar diferencia" PanelWidth="300" Filter="{x:Bind ViewModel.TableDifferenceFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -574,7 +574,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar estado" PlaceholderText="Buscar estado" PanelWidth="260" Filter="{x:Bind ViewModel.TableStatusFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Table:Status" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar estado" PlaceholderText="Buscar estado" PanelWidth="260" Filter="{x:Bind ViewModel.TableStatusFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -591,7 +591,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar satelite" PlaceholderText="Buscar satelite" PanelWidth="300" Filter="{x:Bind ViewModel.TableSatelliteFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Table:Satellite" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar satelite" PlaceholderText="Buscar satelite" PanelWidth="300" Filter="{x:Bind ViewModel.TableSatelliteFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1265,7 +1265,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar articulo" PlaceholderText="Buscar articulo o descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosArticuloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Article" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar articulo" PlaceholderText="Buscar articulo o descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosArticuloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1276,7 +1276,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar descripcion" PlaceholderText="Buscar descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosDescripcionFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Description" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar descripcion" PlaceholderText="Buscar descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosDescripcionFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1287,7 +1287,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar cobertura" PlaceholderText="Buscar cobertura" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosCoberturaFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Coverage" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar cobertura" PlaceholderText="Buscar cobertura" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosCoberturaFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1298,7 +1298,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar principal" PlaceholderText="Buscar inventario principal" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosPrincipalFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Principal" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar principal" PlaceholderText="Buscar inventario principal" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosPrincipalFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1309,7 +1309,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar stock externo" PlaceholderText="Buscar stock externo" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosStockExtFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:StockExt" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar stock externo" PlaceholderText="Buscar stock externo" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosStockExtFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1320,7 +1320,7 @@
                                     </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar transito" PlaceholderText="Buscar transito" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosTransitoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Transito" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar transito" PlaceholderText="Buscar transito" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosTransitoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1331,7 +1331,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar cantidad a traer" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosTraerFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Traer" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar cantidad a traer" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosTraerFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1342,7 +1342,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar cant. palets" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosPalletCountFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:PalletCount" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar cant. palets" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosPalletCountFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1353,7 +1353,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar pallet" PlaceholderText="Buscar pallet" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosPaletsFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Pallets" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar pallet" PlaceholderText="Buscar pallet" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosPaletsFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1364,7 +1364,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar tamano" PlaceholderText="Buscar S, D o T" PanelWidth="220" Filter="{x:Bind ViewModel.TrasladosTarimaFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Tarima" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar tamano" PlaceholderText="Buscar S, D o T" PanelWidth="220" Filter="{x:Bind ViewModel.TrasladosTarimaFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1375,7 +1375,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar alistado" PlaceholderText="Buscar Si o No" PanelWidth="220" Filter="{x:Bind ViewModel.TrasladosAlistadoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Alistado" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar alistado" PlaceholderText="Buscar Si o No" PanelWidth="220" Filter="{x:Bind ViewModel.TrasladosAlistadoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1386,7 +1386,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar zona externa" PlaceholderText="Buscar zona" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosZonasFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Zonas" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar zona externa" PlaceholderText="Buscar zona" PanelWidth="300" Filter="{x:Bind ViewModel.TrasladosZonasFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1397,7 +1397,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar estado" PlaceholderText="Buscar estado" PanelWidth="260" Filter="{x:Bind ViewModel.TrasladosEstadoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Transfer:Status" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar estado" PlaceholderText="Buscar estado" PanelWidth="260" Filter="{x:Bind ViewModel.TrasladosEstadoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -1840,7 +1840,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar expedicion" PlaceholderText="Buscar expedicion" PanelWidth="260" Filter="{x:Bind ViewModel.ExpExpedicionFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Expedicion" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar expedicion" PlaceholderText="Buscar expedicion" PanelWidth="260" Filter="{x:Bind ViewModel.ExpExpedicionFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1851,7 +1851,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar articulo" PlaceholderText="Buscar articulo o descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.ExpArticuloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Article" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar articulo" PlaceholderText="Buscar articulo o descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.ExpArticuloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1862,7 +1862,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar descripcion" PlaceholderText="Buscar descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.ExpDescripcionFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Description" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar descripcion" PlaceholderText="Buscar descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.ExpDescripcionFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1873,7 +1873,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar cantidad" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.ExpCantidadFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Cantidad" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar cantidad" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.ExpCantidadFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1884,7 +1884,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar principal" PlaceholderText="Buscar inventario principal" PanelWidth="300" Filter="{x:Bind ViewModel.ExpPrincipalFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Principal" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar principal" PlaceholderText="Buscar inventario principal" PanelWidth="300" Filter="{x:Bind ViewModel.ExpPrincipalFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1895,7 +1895,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar en externas" PlaceholderText="Buscar cantidad externa" PanelWidth="300" Filter="{x:Bind ViewModel.ExpExternasFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Externas" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar en externas" PlaceholderText="Buscar cantidad externa" PanelWidth="300" Filter="{x:Bind ViewModel.ExpExternasFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1906,7 +1906,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar transito" PlaceholderText="Buscar transito" PanelWidth="300" Filter="{x:Bind ViewModel.ExpTransitoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Transito" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar transito" PlaceholderText="Buscar transito" PanelWidth="300" Filter="{x:Bind ViewModel.ExpTransitoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1917,7 +1917,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar a traer" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.ExpTraerFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Traer" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar a traer" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.ExpTraerFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1928,7 +1928,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar cant. palets" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.ExpPalletCountFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:PalletCount" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar cant. palets" PlaceholderText="Buscar cantidad" PanelWidth="300" Filter="{x:Bind ViewModel.ExpPalletCountFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1939,7 +1939,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar pallet" PlaceholderText="Buscar pallet" PanelWidth="300" Filter="{x:Bind ViewModel.ExpPaletsFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Pallets" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar pallet" PlaceholderText="Buscar pallet" PanelWidth="300" Filter="{x:Bind ViewModel.ExpPaletsFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1950,7 +1950,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar tamano" PlaceholderText="Buscar S, D o T" PanelWidth="220" Filter="{x:Bind ViewModel.ExpTarimaFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Tarima" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar tamano" PlaceholderText="Buscar S, D o T" PanelWidth="220" Filter="{x:Bind ViewModel.ExpTarimaFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1961,7 +1961,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar alistado" PlaceholderText="Buscar Si o No" PanelWidth="220" Filter="{x:Bind ViewModel.ExpAlistadoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Alistado" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar alistado" PlaceholderText="Buscar Si o No" PanelWidth="220" Filter="{x:Bind ViewModel.ExpAlistadoFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1972,7 +1972,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar zona externa" PlaceholderText="Buscar zona" PanelWidth="300" Filter="{x:Bind ViewModel.ExpZonasFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Zonas" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar zona externa" PlaceholderText="Buscar zona" PanelWidth="300" Filter="{x:Bind ViewModel.ExpZonasFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -1983,7 +1983,7 @@
                         </StackPanel>
                         <Button.Flyout>
                             <Flyout>
-                                <controls:ExcelTextFilterPanel HeaderText="Filtrar pendiente" PlaceholderText="Buscar pendiente" PanelWidth="300" Filter="{x:Bind ViewModel.ExpPendienteFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Expedicion:Pendiente" />
+                                <controls:ExcelTextFilterPanel HeaderText="Filtrar pendiente" PlaceholderText="Buscar pendiente" PanelWidth="300" Filter="{x:Bind ViewModel.ExpPendienteFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>
@@ -2382,7 +2382,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar articulo" PlaceholderText="Buscar articulo o descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonArticuloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Comparison:Article" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar articulo" PlaceholderText="Buscar articulo o descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonArticuloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -2394,7 +2394,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar descripcion" PlaceholderText="Buscar descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonDescripcionFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Comparison:Description" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar descripcion" PlaceholderText="Buscar descripcion" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonDescripcionFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -2406,7 +2406,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar Inv OLO" PlaceholderText="Buscar Inv OLO" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonOloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Comparison:Olo" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar Inv OLO" PlaceholderText="Buscar Inv OLO" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonOloFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -2418,7 +2418,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar Inv Servica" PlaceholderText="Buscar Inv Servica" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonServicaFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Comparison:Servica" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar Inv Servica" PlaceholderText="Buscar Inv Servica" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonServicaFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -2430,7 +2430,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar semanas OLO" PlaceholderText="Buscar semanas" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonCoverageFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Comparison:Coverage" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar semanas OLO" PlaceholderText="Buscar semanas" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonCoverageFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -2442,7 +2442,7 @@
                             </StackPanel>
                             <Button.Flyout>
                                 <Flyout>
-                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar comentarios" PlaceholderText="Buscar comentario" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonComentariosFilter}" SortAscendingCommand="{x:Bind ViewModel.SortTextColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortTextColumnDescendingCommand}" SortCommandParameter="Comparison:Comments" />
+                                    <controls:ExcelTextFilterPanel HeaderText="Filtrar comentarios" PlaceholderText="Buscar comentario" PanelWidth="300" Filter="{x:Bind ViewModel.ComparisonComentariosFilter}" SortAscendingCommand="{x:Bind ViewModel.SortColumnAscendingCommand}" SortDescendingCommand="{x:Bind ViewModel.SortColumnDescendingCommand}" />
                                 </Flyout>
                             </Button.Flyout>
                         </Button>

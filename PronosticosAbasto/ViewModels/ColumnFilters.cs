@@ -2,11 +2,12 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PronosticosAbasto.Core.Tables;
 
 namespace PronosticosAbasto.ViewModels;
 
 /// <summary>Excel-style per-column value filter with an optional contains fallback.</summary>
-public partial class TextColumnFilter : ObservableObject
+public partial class TextColumnFilter : ObservableObject, IColumnValueFilter
 {
     private readonly Action _changed;
     private bool _isRefreshingOptions;
@@ -193,6 +194,9 @@ public partial class TextColumnFilter : ObservableObject
 
         NotifyOptionsChanged();
     }
+
+    /// <summary>Igual que el comando Borrar, para que el motor de tablas pueda limpiar todas las columnas de una vez.</summary>
+    public void ClearFilter() => Clear();
 
     [RelayCommand]
     private void Clear()

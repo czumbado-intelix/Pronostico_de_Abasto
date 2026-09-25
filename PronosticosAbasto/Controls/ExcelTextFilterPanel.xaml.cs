@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
@@ -51,13 +51,6 @@ public sealed partial class ExcelTextFilterPanel : UserControl
             typeof(ExcelTextFilterPanel),
             new PropertyMetadata(null));
 
-    public static readonly DependencyProperty SortCommandParameterProperty =
-        DependencyProperty.Register(
-            nameof(SortCommandParameter),
-            typeof(object),
-            typeof(ExcelTextFilterPanel),
-            new PropertyMetadata(null));
-
     public ExcelTextFilterPanel()
     {
         InitializeComponent();
@@ -97,12 +90,6 @@ public sealed partial class ExcelTextFilterPanel : UserControl
     {
         get => (ICommand?)GetValue(SortDescendingCommandProperty);
         set => SetValue(SortDescendingCommandProperty, value);
-    }
-
-    public object? SortCommandParameter
-    {
-        get => GetValue(SortCommandParameterProperty);
-        set => SetValue(SortCommandParameterProperty, value);
     }
 
     public string ClearFilterText => string.IsNullOrWhiteSpace(HeaderText)
