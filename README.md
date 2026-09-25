@@ -1,4 +1,4 @@
-# Pronóstico de Abasto
+﻿# Pronóstico de Abasto
 
 App nativa de Windows (WinUI 3 / .NET 8) para abasto. Compara el **forecast de
 demanda** contra el **inventario eFlow** y dice **qué hay que traer de las
@@ -12,7 +12,7 @@ backlog— está en [DESIGN.md](DESIGN.md).
 
 | Proyecto | Qué es |
 |---|---|
-| `PronosticosAbasto.Core` | Lógica pura, sin WinUI: análisis, parseo/exportación de Excel (ClosedXML) y stores en disco. |
+| `PronosticosAbasto.Core` | Lógica pura, sin WinUI: análisis, parseo/exportación de Excel (ClosedXML), stores en disco y el motor de filtrado/orden de las tablas. |
 | `PronosticosAbasto` | App WinUI 3: vistas, MVVM y diálogos. |
 | `PronosticosAbasto.Core.Tests` | xUnit sobre el Core. |
 
@@ -58,4 +58,9 @@ zonas satélite, umbrales, comentarios) se guardan como JSON en
 `%LOCALAPPDATA%\PronosticosAbasto\`. Es almacenamiento por usuario y por
 máquina: no se comparte entre operadores.
 
-Los errores no controlados quedan en `%LOCALAPPDATA%\PronosticosAbasto\crash.log`.
+Los errores no controlados quedan en `%LOCALAPPDATA%\PronosticosAbasto\crash.log`,
+y la app avisa con un diálogo en vez de seguir en silencio.
+
+## Tema
+
+La app es de tema claro únicamente, siguiendo la guía visual del DESIGN.

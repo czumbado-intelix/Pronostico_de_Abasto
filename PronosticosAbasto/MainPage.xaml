@@ -187,15 +187,6 @@
                             </StackPanel>
                         </Border>
                         <Border Width="1" Height="16" Background="{StaticResource StitchBorderBrush}" />
-                        <Button
-                            Width="32"
-                            Height="32"
-                            Padding="0"
-                            Click="ThemeToggle_Click"
-                            ToolTipService.ToolTip="Cambiar tema claro / oscuro"
-                            Style="{StaticResource GuardianSecondaryButtonStyle}">
-                            <FontIcon Glyph="&#xE793;" FontSize="16" />
-                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>

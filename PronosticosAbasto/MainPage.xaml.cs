@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -105,10 +105,35 @@ public sealed partial class MainPage : Page
         return Math.Max(ColumnResizeMinWidth, column.Width.Value * 120);
     }
 
+    /// <summary>
+    /// Anota una cuadricula (encabezado o fila) para que reciba los cambios de
+    /// ancho y orden de columnas de su tabla.
+    /// </summary>
+    /// <remarks>
+    /// Se llama por cada fila que carga, y el ListView recicla contenedores al
+    /// desplazarse, asi que la lista se limpia en la misma pasada en que se
+    /// busca: antes las referencias muertas solo se podaban en
+    /// <see cref="ApplyTableColumnLayout(string)"/>, al que
+    /// <c>TableRowGrid_Loaded</c> no llama, y el recorrido lineal crecia sin
+    /// techo mientras el operador desplazaba la tabla.
+    /// </remarks>
     private void RegisterTableGrid(string tableKey, Grid grid)
     {
         var state = GetOrCreateTableColumnState(tableKey, grid);
-        if (!state.RegisteredGrids.Any(reference => reference.TryGetTarget(out var existing) && ReferenceEquals(existing, grid)))
+        var alreadyRegistered = false;
+
+        for (var index = state.RegisteredGrids.Count - 1; index >= 0; index--)
+        {
+            if (!state.RegisteredGrids[index].TryGetTarget(out var existing))
+            {
+                state.RegisteredGrids.RemoveAt(index);
+                continue;
+            }
+
+            alreadyRegistered |= ReferenceEquals(existing, grid);
+        }
+
+        if (!alreadyRegistered)
         {
             state.RegisteredGrids.Add(new WeakReference<Grid>(grid));
         }
@@ -426,8 +451,6 @@ public sealed partial class MainPage : Page
             ExpandedSideNav.Visibility = Visibility.Collapsed;
         }
     }
-
-    private void ThemeToggle_Click(object sender, RoutedEventArgs e) => App.ToggleTheme();
 
     private void TransferTab_Click(object sender, RoutedEventArgs e)
     {

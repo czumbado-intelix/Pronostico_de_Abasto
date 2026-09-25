@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
@@ -37,60 +37,27 @@ public partial class App : Application
         WinRT.Interop.WindowNative.GetWindowHandle(Window);
 
     /// <summary>
-    /// Initializes the singleton application object.
+    /// Tema unico de la app.
     /// </summary>
-    private const string ThemeSettingKey = "AppTheme";
-
-    /// <summary>The active app theme (Light default, mirroring the Fluent design).</summary>
-    public static ElementTheme CurrentTheme { get; private set; } = ElementTheme.Light;
+    /// <remarks>
+    /// La guia visual es explicita: "las superficies no usan fondos oscuros ni
+    /// colores adicionales como tema dominante". Habia un boton para alternar
+    /// claro/oscuro, pero los diccionarios Light y Dark de App.xaml son
+    /// identicos color por color: alternar no cambiaba ni un pincel propio y
+    /// solo daba vuelta los controles del sistema (cuadros de texto, listas
+    /// desplegables, dialogos), dejando texto claro sobre superficies blancas.
+    /// El tema queda fijo en claro; los diccionarios gemelos se conservan a
+    /// proposito para que el tema del sistema tampoco altere nada.
+    /// Usar esta propiedad al crear <c>ContentDialog</c> y menus, que se montan
+    /// fuera del arbol de la ventana y no heredan el <c>RequestedTheme</c> de la
+    /// ventana.
+    /// </remarks>
+    public static ElementTheme CurrentTheme => ElementTheme.Light;
 
     public App()
     {
         InitializeComponent();
         UnhandledException += OnAppUnhandledException;
-    }
-
-    /// <summary>Applies a theme to the whole window tree and persists the choice.</summary>
-    public static void ApplyTheme(ElementTheme theme)
-    {
-        CurrentTheme = theme;
-        if (Window?.Content is FrameworkElement root)
-        {
-            root.RequestedTheme = theme;
-        }
-
-        try
-        {
-            Windows.Storage.ApplicationData.Current.LocalSettings.Values[ThemeSettingKey] = theme.ToString();
-        }
-        catch
-        {
-            // Persisting the theme is best-effort.
-        }
-    }
-
-    /// <summary>Flips between light and dark.</summary>
-    public static void ToggleTheme() =>
-        ApplyTheme(CurrentTheme == ElementTheme.Dark ? ElementTheme.Light : ElementTheme.Dark);
-
-    private static ElementTheme LoadSavedTheme()
-    {
-        try
-        {
-            if (Windows.Storage.ApplicationData.Current.LocalSettings.Values.TryGetValue(ThemeSettingKey, out var value) &&
-                value is string text &&
-                Enum.TryParse<ElementTheme>(text, out var theme) &&
-                theme != ElementTheme.Default)
-            {
-                return theme;
-            }
-        }
-        catch
-        {
-            // Fall back to the default below.
-        }
-
-        return ElementTheme.Light;
     }
 
     /// <summary>Ruta del log de errores no controlados.</summary>
@@ -181,7 +148,11 @@ public partial class App : Application
     {
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        if (Window.Content is FrameworkElement root)
+        {
+            root.RequestedTheme = CurrentTheme;
+        }
+
         Window.Activate();
-        ApplyTheme(LoadSavedTheme());
     }
 }

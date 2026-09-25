@@ -1,4 +1,4 @@
-# PronosticosAbasto — Documento de diseño
+﻿# PronosticosAbasto — Documento de diseño
 
 App nativa de Windows (WinUI 3 / .NET 8) para abasto. Compara un **forecast/demanda** contra el **inventario eFlow** y dice **qué hay que traer de las bodegas satelitales (externas)** para cubrir lo que no alcanza la bodega principal, por empresa (EPA, Cofersa).
 
@@ -86,6 +86,7 @@ El "trabajo" del operador es ver **qué traer**, por eso la app está orientada 
 - **El cálculo no se duplica en la UI.** El analizador produce un modelo completo; las vistas sólo lo proyectan.
 - **Datos primero, UI después.** Los formatos de Excel se auto-detectan en el Core; la UI no conoce columnas de Excel.
 - **Todo verificable.** El Core tiene pruebas xUnit; la UI se valida con build limpio (x:Bind se compila) + corridas reales.
+- **Las tablas se declaran, no se programan.** Las cuatro tablas filtrables (Análisis, Traslados, Expediciones, Comparativa) declaran sus columnas una sola vez en `ViewModels/MainPageViewModel.Tables.cs`: texto visible, filtro y, si aplica, clave numérica de orden. `Core/Tables/TableView<TRow>` recorre esa declaración para repoblar las opciones del panel tipo Excel, filtrar y ordenar. Agregar una columna es una línea, no tres métodos. El orden se pide con la **instancia del filtro**, no con una clave de texto, así que no hay strings en el XAML que puedan desalinearse en silencio.
 
 ---
 
@@ -96,13 +97,14 @@ PronosticosAbasto.Core/         Lógica pura (sin WinUI). ClosedXML para Excel.
   Analysis/                     Modelo de dominio + analizadores
   IO/                           Parseo y exportación de Excel
   Configuration/                Defaults de zonas satélite por empresa
+  Tables/                       Motor de filtrado y orden de las tablas
   Storage/                      Stores en disco (JSON en %LOCALAPPDATA%)
 PronosticosAbasto/              App WinUI 3 (UI + MVVM)
   ViewModels/                   MainPageViewModel + VMs de fila/sesión
   Services/                     File picker y diálogos (lo único que toca WinUI)
   MainPage.xaml(.cs)            Pantalla única con 3 vistas
   App.xaml.cs                   Arranque + manejador global de excepciones
-PronosticosAbasto.Core.Tests/   xUnit (106 pruebas)
+PronosticosAbasto.Core.Tests/   xUnit (121 pruebas)
 ```
 
 > El solution file es `PronosticosAbasto.slnx`; también se puede compilar cada
@@ -235,7 +237,7 @@ dotnet build PronosticosAbasto/PronosticosAbasto.csproj -c Debug
 dotnet run   --project PronosticosAbasto/PronosticosAbasto.csproj -c Debug   # re-despliega y lanza
 ```
 
-- **Pruebas:** 106 en `PronosticosAbasto.Core.Tests` (parsers, analizadores, embudo, exportador, clasificador). La lógica que mueve decisiones de compra se prueba a nivel Core.
+- **Pruebas:** 121 en `PronosticosAbasto.Core.Tests` (parsers, analizadores, embudo, exportador, clasificador, stores y motor de tablas). La lógica que mueve decisiones de compra se prueba a nivel Core.
 - **Datos reales:** los parsers/analizadores se han validado contra los archivos reales de EPA y Cofersa (volúmenes de 16k–34k filas) mediante smoke tests temporales.
 
 ---
@@ -247,9 +249,7 @@ dotnet run   --project PronosticosAbasto/PronosticosAbasto.csproj -c Debug   # r
 - **Expediciones "sin sumar":** si un artículo se repite en varias líneas, cada línea compara contra el inventario completo (posible doble conteo). Pendiente: toggle opcional "agrupar por artículo".
 - **Persistencia de archivos:** la app no recuerda los últimos archivos cargados entre reinicios; no hay indicador de progreso durante la carga.
 - **Empaquetado/entrega:** ya existe `tools/Create-WindowsInstaller.ps1` (genera el MSI en `dist/installer/`), pero falta versionado y firma para entregar a un usuario no técnico.
-- **`MainPageViewModel` es un god object:** ~3,600 líneas y ~150 miembros, con 40 `TextColumnFilter` declarados a mano y cuatro pipelines casi idénticos (Table / Transfer / Expedicion / Comparison), cada uno con su `Filter*Rows`, `Apply*TextSort` y `Refresh*FilterOptions`. Pendiente: un descriptor `TableColumn<TRow>` + un controlador genérico que colapse los doce métodos. *Refactor grande: merece su propia rama.*
-- **Claves de ordenamiento sin verificar:** XAML manda strings tipo `"Table:Difference"` que el ViewModel resuelve con `switch`. Hoy las 38 claves coinciden, pero un typo no falla en compilación ni en runtime: la columna simplemente deja de ordenar. Lo elimina el refactor anterior.
-- **Cobertura de pruebas de UI:** los stores ya tienen pruebas (`Core.Tests/Storage`), pero el exportador de requisición y la lógica del ViewModel siguen con cobertura parcial.
+- **Cobertura de pruebas del ViewModel:** `MainPageViewModel` expone tipos de WinUI (`InfoBarSeverity`) y de LiveCharts (`ISeries`, `Axis`), así que probarlo exige un host de UI, no un proyecto xUnit normal. Su parte pura —el filtrado y ordenamiento de las cuatro tablas— ya salió al Core y sí está cubierta. Su constructor de 13 parámetros es la raíz de composición: lo usa el constructor sin parámetros, no hay inyección real mientras no exista ese host.
 
 ### Persistencia local y datos compartidos
 
