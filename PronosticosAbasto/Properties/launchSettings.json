@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "PronosticosAbasto (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "PronosticosAbasto (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

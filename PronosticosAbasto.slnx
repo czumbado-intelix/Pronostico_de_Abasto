@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="PronosticosAbasto.Core.Tests/PronosticosAbasto.Core.Tests.csproj" />
+  <Project Path="PronosticosAbasto.Core/PronosticosAbasto.Core.csproj" />
+  <Project Path="PronosticosAbasto/PronosticosAbasto.csproj" />
+</Solution>

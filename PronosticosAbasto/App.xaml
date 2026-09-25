@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="PronosticosAbasto.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:PronosticosAbasto">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <ResourceDictionary.ThemeDictionaries>
+
+                <!-- ============================ LIGHT (Fluent Logic Abasto) ============================ -->
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="GuardianWindowBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianCardBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianBgDeepBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianBgMainBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianBgCardSolidBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianBgElevatedBrush" Color="#FFFFFF" />
+
+                    <SolidColorBrush x:Key="GuardianPrimaryBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianOnPrimaryBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianSecondaryBrush" Color="#00A88F" Opacity="0.74" />
+                    <SolidColorBrush x:Key="GuardianSuccessBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianWarningBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianDangerBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianInfoBrush" Color="#00A88F" />
+
+                    <SolidColorBrush x:Key="GuardianTextPrimaryBrush" Color="#000000" />
+                    <SolidColorBrush x:Key="GuardianTextSecondaryBrush" Color="#000000" />
+                    <SolidColorBrush x:Key="GuardianTextMutedBrush" Color="#000000" />
+
+                    <SolidColorBrush x:Key="GuardianPrimaryLowBrush" Color="#00A88F" Opacity="0.08" />
+                    <SolidColorBrush x:Key="GuardianPrimaryMediumBrush" Color="#00A88F" Opacity="0.16" />
+                    <SolidColorBrush x:Key="GuardianBorderBrush" Color="#00A88F" Opacity="0.46" />
+                    <SolidColorBrush x:Key="GuardianBorderSoftBrush" Color="#00A88F" Opacity="0.18" />
+                    <SolidColorBrush x:Key="GuardianSuccessLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianWarningLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianDangerLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianInfoLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianHoverBrush" Color="#00A88F" Opacity="0.12" />
+                    <SolidColorBrush x:Key="GuardianBrandBrush" Color="#000000" />
+                    <SolidColorBrush x:Key="GuardianMicaBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianSurfaceLowBrush" Color="#00A88F" Opacity="0.05" />
+                    <SolidColorBrush x:Key="GuardianSurfaceHighBrush" Color="#00A88F" Opacity="0.12" />
+                    <SolidColorBrush x:Key="GuardianOutlineVariantBrush" Color="#00A88F" Opacity="0.30" />
+                    <SolidColorBrush x:Key="GuardianPrimaryFixedDimBrush" Color="#00A88F" Opacity="0.22" />
+
+                    <SolidColorBrush x:Key="AccentButtonBackground" Color="#00A88F" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#00977F" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#008873" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundDisabled" Color="#00A88F" Opacity="0.32" />
+                    <SolidColorBrush x:Key="AccentButtonForeground" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundDisabled" Color="#FFFFFF" Opacity="0.58" />
+                    <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="AccentButtonBorderBrushPointerOver" Color="#00977F" />
+                    <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="#008873" />
+                    <SolidColorBrush x:Key="AccentButtonBorderBrushDisabled" Color="#00A88F" Opacity="0.32" />
+
+                    <LinearGradientBrush x:Key="GuardianBrandGradientBrush" StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#00A88F" Offset="0" />
+                        <GradientStop Color="#00A88F" Offset="1" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+
+                <!-- ============================ DARK ============================ -->
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="GuardianWindowBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianCardBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianBgDeepBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianBgMainBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianBgCardSolidBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianBgElevatedBrush" Color="#FFFFFF" />
+
+                    <SolidColorBrush x:Key="GuardianPrimaryBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianOnPrimaryBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianSecondaryBrush" Color="#00A88F" Opacity="0.74" />
+                    <SolidColorBrush x:Key="GuardianSuccessBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianWarningBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianDangerBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianInfoBrush" Color="#00A88F" />
+
+                    <SolidColorBrush x:Key="GuardianTextPrimaryBrush" Color="#000000" />
+                    <SolidColorBrush x:Key="GuardianTextSecondaryBrush" Color="#000000" />
+                    <SolidColorBrush x:Key="GuardianTextMutedBrush" Color="#000000" />
+
+                    <SolidColorBrush x:Key="GuardianPrimaryLowBrush" Color="#00A88F" Opacity="0.08" />
+                    <SolidColorBrush x:Key="GuardianPrimaryMediumBrush" Color="#00A88F" Opacity="0.16" />
+                    <SolidColorBrush x:Key="GuardianBorderBrush" Color="#00A88F" Opacity="0.46" />
+                    <SolidColorBrush x:Key="GuardianBorderSoftBrush" Color="#00A88F" Opacity="0.18" />
+                    <SolidColorBrush x:Key="GuardianSuccessLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianWarningLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianDangerLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianInfoLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianHoverBrush" Color="#00A88F" Opacity="0.12" />
+                    <SolidColorBrush x:Key="GuardianBrandBrush" Color="#000000" />
+                    <SolidColorBrush x:Key="GuardianMicaBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianSurfaceLowBrush" Color="#00A88F" Opacity="0.05" />
+                    <SolidColorBrush x:Key="GuardianSurfaceHighBrush" Color="#00A88F" Opacity="0.12" />
+                    <SolidColorBrush x:Key="GuardianOutlineVariantBrush" Color="#00A88F" Opacity="0.30" />
+                    <SolidColorBrush x:Key="GuardianPrimaryFixedDimBrush" Color="#00A88F" Opacity="0.22" />
+
+                    <SolidColorBrush x:Key="AccentButtonBackground" Color="#00A88F" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#00977F" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#008873" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundDisabled" Color="#00A88F" Opacity="0.32" />
+                    <SolidColorBrush x:Key="AccentButtonForeground" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundDisabled" Color="#FFFFFF" Opacity="0.58" />
+                    <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="AccentButtonBorderBrushPointerOver" Color="#00977F" />
+                    <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="#008873" />
+                    <SolidColorBrush x:Key="AccentButtonBorderBrushDisabled" Color="#00A88F" Opacity="0.32" />
+
+                    <LinearGradientBrush x:Key="GuardianBrandGradientBrush" StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#00A88F" Offset="0" />
+                        <GradientStop Color="#00A88F" Offset="1" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- Bundled design fonts. Stitch uses a restrained Inter/Segoe-style operational face. -->
+            <FontFamily x:Key="GuardianDisplayFontFamily">ms-appx:///Assets/Fonts/Inter.ttf#Inter</FontFamily>
+            <FontFamily x:Key="GuardianFontFamily">ms-appx:///Assets/Fonts/Inter.ttf#Inter</FontFamily>
+            <FontFamily x:Key="GuardianMonoFontFamily">ms-appx:///Assets/Fonts/JetBrainsMono.ttf#JetBrains Mono</FontFamily>
+            <FontFamily x:Key="GuardianIconFontFamily">ms-appx:///Assets/Fonts/MaterialSymbols.ttf#Material Symbols Outlined</FontFamily>
+
+            <!-- Stitch / Design System Workspace tokens for Traslados and Expediciones. -->
+            <SolidColorBrush x:Key="StitchSurfaceBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="StitchSurfaceSubtleBrush" Color="#F7F9F9" />
+            <SolidColorBrush x:Key="StitchTableHeaderBrush" Color="#FAFCFC" />
+            <SolidColorBrush x:Key="StitchBorderBrush" Color="#E2E8E7" />
+            <SolidColorBrush x:Key="StitchBorderPrimaryBrush" Color="#A3DDD4" />
+            <SolidColorBrush x:Key="StitchPrimaryBrush" Color="#00A88F" />
+            <SolidColorBrush x:Key="StitchPrimaryStrongBrush" Color="#008F7A" />
+            <SolidColorBrush x:Key="StitchPrimarySoftBrush" Color="#E6F7F4" />
+            <SolidColorBrush x:Key="StitchPrimarySurfaceBrush" Color="#F4FAF9" />
+            <SolidColorBrush x:Key="StitchPrimaryBorderBrush" Color="#C2EFEB" />
+            <SolidColorBrush x:Key="StitchPrimaryColumnBrush" Color="#F5FBF9" />
+            <SolidColorBrush x:Key="StitchTextPrimaryBrush" Color="#000000" />
+            <SolidColorBrush x:Key="StitchTextMutedBrush" Color="#6B7280" />
+            <SolidColorBrush x:Key="StitchTextSoftBrush" Color="#9CA3AF" />
+            <SolidColorBrush x:Key="StitchDangerBrush" Color="#D32F2F" />
+            <SolidColorBrush x:Key="StitchBlackBrush" Color="#000000" />
+
+            <!-- ===== Styles (theme-agnostic; resolve brushes per active theme via ThemeResource) ===== -->
+            <Style x:Key="GuardianCardBorderStyle" TargetType="Border">
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Background" Value="{ThemeResource GuardianCardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource GuardianBorderSoftBrush}" />
+                <Setter Property="Transitions">
+                    <Setter.Value>
+                        <TransitionCollection>
+                            <EntranceThemeTransition FromVerticalOffset="14" />
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="StitchPanelBorderStyle" TargetType="Border">
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Background" Value="{StaticResource StitchSurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource StitchBorderBrush}" />
+            </Style>
+
+            <Style x:Key="StitchMetricCardStyle" TargetType="Border">
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="12,10" />
+                <Setter Property="MinHeight" Value="72" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Background" Value="{StaticResource StitchSurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource StitchBorderBrush}" />
+            </Style>
+
+            <Style x:Key="StitchPrimaryMetricCardStyle" TargetType="Border">
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="12,10" />
+                <Setter Property="MinHeight" Value="72" />
+                <Setter Property="BorderThickness" Value="2" />
+                <Setter Property="Background" Value="{StaticResource StitchPrimarySoftBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource StitchPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="StitchTableHeaderTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+                <Setter Property="Foreground" Value="{StaticResource StitchTextPrimaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource GuardianFontFamily}" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="CharacterSpacing" Value="40" />
+            </Style>
+
+            <Style x:Key="StitchTableListViewItemStyle" TargetType="ListViewItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="Background" Value="Transparent" />
+            </Style>
+
+            <Style x:Key="GuardianEyebrowTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextMutedBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource GuardianFontFamily}" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="CharacterSpacing" Value="60" />
+            </Style>
+
+            <Style x:Key="GuardianTitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextPrimaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource GuardianDisplayFontFamily}" />
+                <Setter Property="FontSize" Value="24" />
+                <Setter Property="FontWeight" Value="Bold" />
+            </Style>
+
+            <Style x:Key="GuardianHeadlineTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextPrimaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource GuardianDisplayFontFamily}" />
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+            <Style x:Key="GuardianBodyTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextSecondaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource GuardianFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="TextTrimming" Value="None" />
+            </Style>
+
+            <Style x:Key="GuardianStrongTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextPrimaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource GuardianFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="TextTrimming" Value="None" />
+            </Style>
+
+            <Style x:Key="GuardianMonoTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextPrimaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource GuardianMonoFontFamily}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="TextWrapping" Value="NoWrap" />
+                <Setter Property="TextTrimming" Value="None" />
+            </Style>
+
+            <Style x:Key="GuardianIconStyle" TargetType="FontIcon">
+                <Setter Property="FontFamily" Value="{StaticResource GuardianIconFontFamily}" />
+                <Setter Property="FontSize" Value="20" />
+            </Style>
+
+            <Style x:Key="GuardianPrimaryButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{ThemeResource GuardianPrimaryBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource GuardianOnPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource GuardianPrimaryBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Transitions">
+                    <Setter.Value>
+                        <TransitionCollection>
+                            <EntranceThemeTransition FromVerticalOffset="4" />
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="GuardianSecondaryButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{ThemeResource GuardianBgElevatedBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource GuardianBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Transitions">
+                    <Setter.Value>
+                        <TransitionCollection>
+                            <EntranceThemeTransition FromVerticalOffset="4" />
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="GuardianComboBoxStyle" TargetType="ComboBox">
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextPrimaryBrush}" />
+                <Setter Property="Background" Value="{ThemeResource GuardianBgElevatedBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource GuardianBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="FontSize" Value="12" />
+            </Style>
+
+            <Style x:Key="GuardianTextBoxStyle" TargetType="TextBox">
+                <Setter Property="Foreground" Value="{ThemeResource GuardianTextPrimaryBrush}" />
+                <Setter Property="Background" Value="{ThemeResource GuardianBgElevatedBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource GuardianBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="FontSize" Value="12" />
+            </Style>
+
+            <Style x:Key="GuardianListViewItemStyle" TargetType="ListViewItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0,0,0,6" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Transitions">
+                    <Setter.Value>
+                        <TransitionCollection>
+                            <EntranceThemeTransition FromVerticalOffset="10" />
+                            <RepositionThemeTransition />
+                            <AddDeleteThemeTransition />
+                        </TransitionCollection>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

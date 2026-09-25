@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="PronosticosAbasto.Controls.SettingsDialogContent"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Width="640" Spacing="24">
+
+        <!-- ===== Semaforo de Cobertura ===== -->
+        <StackPanel Spacing="12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="Semaforo de Cobertura" Style="{StaticResource GuardianHeadlineTextStyle}" />
+                <TextBlock Text="Configure los umbrales porcentuales para las alertas de inventario." Style="{StaticResource GuardianBodyTextStyle}" Foreground="{ThemeResource GuardianTextSecondaryBrush}" />
+            </StackPanel>
+
+            <Border Background="{ThemeResource GuardianSurfaceLowBrush}" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="18">
+
+                    <!-- Gradient bar -->
+                    <Border CornerRadius="4" Height="10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{x:Bind ViewModel.RedColWidth, Mode=OneWay}" />
+                                <ColumnDefinition Width="{x:Bind ViewModel.AmberColWidth, Mode=OneWay}" />
+                                <ColumnDefinition Width="{x:Bind ViewModel.GreenColWidth, Mode=OneWay}" />
+                            </Grid.ColumnDefinitions>
+                            <Rectangle Grid.Column="0" Fill="{ThemeResource GuardianDangerBrush}" />
+                            <Rectangle Grid.Column="1" Fill="{ThemeResource GuardianWarningBrush}" />
+                            <Rectangle Grid.Column="2" Fill="{ThemeResource GuardianSuccessBrush}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Two thresholds -->
+                    <Grid ColumnSpacing="24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Ellipse Width="10" Height="10" VerticalAlignment="Center" Fill="{ThemeResource GuardianDangerBrush}" />
+                                <TextBlock Text="Limite Critico (Rojo)" Style="{StaticResource GuardianStrongTextStyle}" />
+                            </StackPanel>
+                            <Border Background="{ThemeResource GuardianCardBackgroundBrush}" BorderBrush="{ThemeResource GuardianBorderBrush}" BorderThickness="1" CornerRadius="4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <NumberBox Grid.Column="0" BorderThickness="0" Background="Transparent" Minimum="0" Maximum="1000" SmallChange="5"
+                                               Value="{x:Bind ViewModel.RedPercent, Mode=TwoWay}" />
+                                    <TextBlock Grid.Column="1" Text="%" VerticalAlignment="Center" Margin="6,0,14,0" Foreground="{ThemeResource GuardianTextSecondaryBrush}" />
+                                </Grid>
+                            </Border>
+                            <TextBlock Text="Alertas para cobertura menor a este valor." FontSize="12" Foreground="{ThemeResource GuardianTextMutedBrush}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Ellipse Width="10" Height="10" VerticalAlignment="Center" Fill="{ThemeResource GuardianWarningBrush}" />
+                                <TextBlock Text="Limite de Advertencia (Amarillo)" Style="{StaticResource GuardianStrongTextStyle}" />
+                            </StackPanel>
+                            <Border Background="{ThemeResource GuardianCardBackgroundBrush}" BorderBrush="{ThemeResource GuardianBorderBrush}" BorderThickness="1" CornerRadius="4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <NumberBox Grid.Column="0" BorderThickness="0" Background="Transparent" Minimum="0" Maximum="1000" SmallChange="5"
+                                               Value="{x:Bind ViewModel.HealthyPercent, Mode=TwoWay}" />
+                                    <TextBlock Grid.Column="1" Text="%" VerticalAlignment="Center" Margin="6,0,14,0" Foreground="{ThemeResource GuardianTextSecondaryBrush}" />
+                                </Grid>
+                            </Border>
+                            <TextBlock Text="Cobertura entre el valor critico y este valor." FontSize="12" Foreground="{ThemeResource GuardianTextMutedBrush}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Height="1" Background="{ThemeResource GuardianBorderSoftBrush}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE88E;" FontSize="16" Foreground="{ThemeResource GuardianTextMutedBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.HealthyNoteText, Mode=OneWay}" VerticalAlignment="Center" Foreground="{ThemeResource GuardianTextSecondaryBrush}" Style="{StaticResource GuardianBodyTextStyle}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ===== Zonas Externas ===== -->
+        <StackPanel Spacing="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Zonas Externas (Bodegas Satelite)" Style="{StaticResource GuardianHeadlineTextStyle}" />
+                    <TextBlock Text="Identificadores de zonas que no se contaran en el inventario principal." Style="{StaticResource GuardianBodyTextStyle}" Foreground="{ThemeResource GuardianTextSecondaryBrush}" />
+                </StackPanel>
+                <Button Grid.Column="1" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource GuardianTextPrimaryBrush}" Command="{x:Bind ViewModel.AddZoneCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE145;" FontSize="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        <TextBlock Text="Agregar Zona" Foreground="{ThemeResource GuardianTextPrimaryBrush}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <Border Background="{ThemeResource GuardianSurfaceLowBrush}" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="1" CornerRadius="8">
+                <StackPanel>
+                    <!-- header -->
+                    <Grid Padding="16,8" Background="{ThemeResource GuardianSurfaceHighBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="ID DE ZONA" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="ACCIONES" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                    </Grid>
+
+                    <ListView x:Name="ZonesList"
+                              ItemsSource="{x:Bind ViewModel.Zones, Mode=OneWay}"
+                              SelectionMode="None"
+                              Background="Transparent"
+                              MaxHeight="240">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Grid Padding="16,12" ColumnSpacing="12" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xEBB8;" FontSize="18" Foreground="{ThemeResource GuardianTextMutedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind}" VerticalAlignment="Center" Style="{StaticResource GuardianMonoTextStyle}" />
+                                    <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="6" Click="RemoveZone_Click" ToolTipService.ToolTip="Eliminar zona">
+                                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE92E;" FontSize="18" Foreground="{ThemeResource GuardianDangerBrush}" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <!-- add row -->
+                    <Grid Padding="16,12" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" PlaceholderText="EJ. ZA10" Style="{StaticResource GuardianTextBoxStyle}"
+                                 Text="{x:Bind ViewModel.NewZoneText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="6" Command="{x:Bind ViewModel.AddZoneCommand}" ToolTipService.ToolTip="Agregar zona">
+                            <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE990;" FontSize="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ===== Zonas Excluidas ===== -->
+        <StackPanel Spacing="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Zonas Excluidas del Inventario" Style="{StaticResource GuardianHeadlineTextStyle}" />
+                    <TextBlock Text="Zonas que no se contaran ni como principal ni como externa." Style="{StaticResource GuardianBodyTextStyle}" Foreground="{ThemeResource GuardianTextSecondaryBrush}" />
+                </StackPanel>
+                <Button Grid.Column="1" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource GuardianTextPrimaryBrush}" Command="{x:Bind ViewModel.AddIgnoredZoneCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE145;" FontSize="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        <TextBlock Text="Agregar Zona" Foreground="{ThemeResource GuardianTextPrimaryBrush}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox PlaceholderText="Ej. ZA23 o ZA23-ZONA ALMACENAJE..." Style="{StaticResource GuardianTextBoxStyle}"
+                         Text="{x:Bind ViewModel.NewIgnoredZoneText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="6" Command="{x:Bind ViewModel.AddIgnoredZoneCommand}" ToolTipService.ToolTip="Agregar zona excluida">
+                    <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE990;" FontSize="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                </Button>
+            </Grid>
+
+            <Border Background="{ThemeResource GuardianSurfaceLowBrush}" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="1" CornerRadius="8">
+                <StackPanel>
+                    <Grid Padding="16,8" Background="{ThemeResource GuardianSurfaceHighBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="ID DE ZONA" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.IgnoredZoneSummaryText, Mode=OneWay}" Margin="0,0,16,0" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                        <TextBlock Grid.Column="2" Text="ACCIONES" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                    </Grid>
+
+                    <ListView x:Name="IgnoredZonesList"
+                              ItemsSource="{x:Bind ViewModel.IgnoredZones, Mode=OneWay}"
+                              SelectionMode="None"
+                              Background="Transparent"
+                              MaxHeight="220">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Grid Padding="16,12" ColumnSpacing="12" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE711;" FontSize="18" Foreground="{ThemeResource GuardianTextMutedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind}" VerticalAlignment="Center" Style="{StaticResource GuardianMonoTextStyle}" />
+                                    <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="6" Click="RemoveIgnoredZone_Click" ToolTipService.ToolTip="Eliminar zona excluida">
+                                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE92E;" FontSize="18" Foreground="{ThemeResource GuardianDangerBrush}" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ===== Alistado Satelital ===== -->
+        <StackPanel Spacing="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Alistado en Bodegas Satelite" Style="{StaticResource GuardianHeadlineTextStyle}" />
+                    <TextBlock Text="Articulos que se preparan en las bodegas satelitales." Style="{StaticResource GuardianBodyTextStyle}" Foreground="{ThemeResource GuardianTextSecondaryBrush}" />
+                </StackPanel>
+                <Button Grid.Column="1" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource GuardianTextPrimaryBrush}" Command="{x:Bind ViewModel.AddPreparedArticleCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE145;" FontSize="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        <TextBlock Text="Agregar Articulo" Foreground="{ThemeResource GuardianTextPrimaryBrush}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox PlaceholderText="Buscar articulo o descripcion" Style="{StaticResource GuardianTextBoxStyle}"
+                         Text="{x:Bind ViewModel.PreparedArticleSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Border Grid.Column="1" Background="{ThemeResource GuardianSurfaceHighBrush}" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.PreparedArticleSummaryText, Mode=OneWay}" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                </Border>
+            </Grid>
+
+            <Border Background="{ThemeResource GuardianSurfaceLowBrush}" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="1" CornerRadius="8">
+                <StackPanel>
+                    <Grid Padding="16,8" Background="{ThemeResource GuardianSurfaceHighBrush}" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.8*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="ARTICULO" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="DESCRIPCION" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                        <TextBlock Grid.Column="2" Text="ACCIONES" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                    </Grid>
+
+                    <ListView x:Name="PreparedArticlesList"
+                              ItemsSource="{x:Bind ViewModel.FilteredPreparedArticles, Mode=OneWay}"
+                              SelectionMode="None"
+                              Background="Transparent"
+                              MaxHeight="220">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="12,8" ColumnSpacing="12" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.1*" />
+                                        <ColumnDefinition Width="1.8*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Text="{Binding Article, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource GuardianTextBoxStyle}" />
+                                    <TextBox Grid.Column="1" Text="{Binding Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource GuardianTextBoxStyle}" />
+                                    <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="6" Click="RemovePreparedArticle_Click" ToolTipService.ToolTip="Eliminar articulo">
+                                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE92E;" FontSize="18" Foreground="{ThemeResource GuardianDangerBrush}" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <Grid Padding="16,12" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.8*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" PlaceholderText="Ej. 100002040" Style="{StaticResource GuardianTextBoxStyle}"
+                                 Text="{x:Bind ViewModel.NewPreparedArticleText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Column="1" PlaceholderText="Descripcion" Style="{StaticResource GuardianTextBoxStyle}"
+                                 Text="{x:Bind ViewModel.NewPreparedDescriptionText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="6" Command="{x:Bind ViewModel.AddPreparedArticleCommand}" ToolTipService.ToolTip="Agregar articulo">
+                            <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE990;" FontSize="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ===== Tamano Tarimas ===== -->
+        <StackPanel Spacing="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Tamano de Tarimas" Style="{StaticResource GuardianHeadlineTextStyle}" />
+                    <TextBlock Text="S = sencilla, D = doble, T = triple." Style="{StaticResource GuardianBodyTextStyle}" Foreground="{ThemeResource GuardianTextSecondaryBrush}" />
+                </StackPanel>
+                <Button Grid.Column="1" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource GuardianTextPrimaryBrush}" Command="{x:Bind ViewModel.AddTarimaSizeCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE145;" FontSize="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        <TextBlock Text="Agregar Tamano" Foreground="{ThemeResource GuardianTextPrimaryBrush}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox PlaceholderText="Buscar articulo, descripcion o S/D/T" Style="{StaticResource GuardianTextBoxStyle}"
+                         Text="{x:Bind ViewModel.TarimaSizeSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Border Grid.Column="1" Background="{ThemeResource GuardianSurfaceHighBrush}" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.TarimaSizeSummaryText, Mode=OneWay}" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                </Border>
+            </Grid>
+
+            <Border Background="{ThemeResource GuardianSurfaceLowBrush}" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="1" CornerRadius="8">
+                <StackPanel>
+                    <Grid Padding="16,8" Background="{ThemeResource GuardianSurfaceHighBrush}" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.6*" />
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="ARTICULO" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="DESCRIPCION" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                        <TextBlock Grid.Column="2" Text="TAMANO" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                        <TextBlock Grid.Column="3" Text="ACCIONES" Style="{StaticResource GuardianEyebrowTextStyle}" />
+                    </Grid>
+
+                    <ListView x:Name="TarimaSizesList"
+                              ItemsSource="{x:Bind ViewModel.FilteredTarimaSizes, Mode=OneWay}"
+                              SelectionMode="None"
+                              Background="Transparent"
+                              MaxHeight="220">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="12,8" ColumnSpacing="12" BorderBrush="{ThemeResource GuardianBorderSoftBrush}" BorderThickness="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.1*" />
+                                        <ColumnDefinition Width="1.6*" />
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Text="{Binding Article, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource GuardianTextBoxStyle}" />
+                                    <TextBox Grid.Column="1" Text="{Binding Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource GuardianTextBoxStyle}" />
+                                    <ComboBox
+                                        Grid.Column="2"
+                                        HorizontalAlignment="Stretch"
+                                        SelectedValue="{Binding SizeCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        SelectedValuePath="Content"
+                                        Style="{StaticResource GuardianComboBoxStyle}">
+                                        <ComboBoxItem Content="S" />
+                                        <ComboBoxItem Content="D" />
+                                        <ComboBoxItem Content="T" />
+                                    </ComboBox>
+                                    <Button Grid.Column="3" Background="Transparent" BorderThickness="0" Padding="6" Click="RemoveTarimaSize_Click" ToolTipService.ToolTip="Eliminar tamano">
+                                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE92E;" FontSize="18" Foreground="{ThemeResource GuardianDangerBrush}" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <Grid Padding="16,12" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.6*" />
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" PlaceholderText="Ej. 100002040" Style="{StaticResource GuardianTextBoxStyle}"
+                                 Text="{x:Bind ViewModel.NewTarimaArticleText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Column="1" PlaceholderText="Descripcion" Style="{StaticResource GuardianTextBoxStyle}"
+                                 Text="{x:Bind ViewModel.NewTarimaDescriptionText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <ComboBox
+                            Grid.Column="2"
+                            HorizontalAlignment="Stretch"
+                            SelectedValue="{x:Bind ViewModel.NewTarimaSizeText, Mode=TwoWay}"
+                            SelectedValuePath="Content"
+                            Style="{StaticResource GuardianComboBoxStyle}">
+                            <ComboBoxItem Content="S" />
+                            <ComboBoxItem Content="D" />
+                            <ComboBoxItem Content="T" />
+                        </ComboBox>
+                        <Button Grid.Column="3" Background="Transparent" BorderThickness="0" Padding="6" Command="{x:Bind ViewModel.AddTarimaSizeCommand}" ToolTipService.ToolTip="Agregar tamano">
+                            <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE990;" FontSize="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

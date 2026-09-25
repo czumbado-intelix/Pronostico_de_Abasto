@@ -1,0 +1,63 @@
+## .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+artifacts/
+
+# Build logs
+[Ll]og/
+[Ll]ogs/
+*.log
+*.binlog
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# NuGet
+*.nupkg
+*.snupkg
+project.lock.json
+
+# MSIX packaging output
+AppPackages/
+BundleArtifacts/
+*.msix
+*.msixupload
+*.appx
+*.appxbundle
+*.appxupload
+
+# Publish / installer output
+# NOTE: Properties/PublishProfiles/*.pubxml SI se versionan: el csproj los
+# referencia mediante la propiedad <PublishProfile>. Por eso no hay regla *.pubxml.
+publish/
+PublishScripts/
+dist/
+*.msi
+*.wixpdb
+*.wixobj
+
+# Carpetas de trabajo locales (datos reales de EPA/Cofersa, exports de prueba)
+work/
+outputs/
+
+# Code analysis and tooling
+_ReSharper*/
+*.DotSettings.user
+*.dotCover
+.idea/
+
+# Ajustes locales de herramientas
+.claude/settings.local.json
+
+# Generated files
+Generated\ Files/
+*_wpftmp.csproj
