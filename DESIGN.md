@@ -1,6 +1,6 @@
 # PronosticosAbasto — Documento de diseño
 
-App nativa de Windows (WinUI 3 / .NET 10) para abasto. Compara un **forecast/demanda** contra el **inventario eFlow** y dice **qué hay que traer de las bodegas satelitales (externas)** para cubrir lo que no alcanza la bodega principal, por empresa (EPA, Cofersa).
+App nativa de Windows (WinUI 3 / .NET 8) para abasto. Compara un **forecast/demanda** contra el **inventario eFlow** y dice **qué hay que traer de las bodegas satelitales (externas)** para cubrir lo que no alcanza la bodega principal, por empresa (EPA, Cofersa).
 
 ---
 
@@ -96,15 +96,17 @@ PronosticosAbasto.Core/         Lógica pura (sin WinUI). ClosedXML para Excel.
   Analysis/                     Modelo de dominio + analizadores
   IO/                           Parseo y exportación de Excel
   Configuration/                Defaults de zonas satélite por empresa
-PronosticosAbasto/              App WinUI 3 (UI + MVVM + persistencia local)
+  Storage/                      Stores en disco (JSON en %LOCALAPPDATA%)
+PronosticosAbasto/              App WinUI 3 (UI + MVVM)
   ViewModels/                   MainPageViewModel + VMs de fila/sesión
-  Services/                     File picker, diálogos, stores en disco
+  Services/                     File picker y diálogos (lo único que toca WinUI)
   MainPage.xaml(.cs)            Pantalla única con 3 vistas
   App.xaml.cs                   Arranque + manejador global de excepciones
-PronosticosAbasto.Core.Tests/   xUnit (39 pruebas)
+PronosticosAbasto.Core.Tests/   xUnit (106 pruebas)
 ```
 
-> No hay `.sln`: cada proyecto se compila individualmente (ver §11).
+> El solution file es `PronosticosAbasto.slnx`; también se puede compilar cada
+> proyecto por separado (ver §11).
 
 ---
 
@@ -233,7 +235,7 @@ dotnet build PronosticosAbasto/PronosticosAbasto.csproj -c Debug
 dotnet run   --project PronosticosAbasto/PronosticosAbasto.csproj -c Debug   # re-despliega y lanza
 ```
 
-- **Pruebas:** 70 en `PronosticosAbasto.Core.Tests` (parsers, analizadores, embudo, exportador, clasificador). La lógica que mueve decisiones de compra se prueba a nivel Core.
+- **Pruebas:** 106 en `PronosticosAbasto.Core.Tests` (parsers, analizadores, embudo, exportador, clasificador). La lógica que mueve decisiones de compra se prueba a nivel Core.
 - **Datos reales:** los parsers/analizadores se han validado contra los archivos reales de EPA y Cofersa (volúmenes de 16k–34k filas) mediante smoke tests temporales.
 
 ---
@@ -244,5 +246,17 @@ dotnet run   --project PronosticosAbasto/PronosticosAbasto.csproj -c Debug   # r
 - **Rama "Sin bodega externa":** el embudo la cuenta pero no hay una lista accionable de "para comprar/escalar" con el faltante por artículo.
 - **Expediciones "sin sumar":** si un artículo se repite en varias líneas, cada línea compara contra el inventario completo (posible doble conteo). Pendiente: toggle opcional "agrupar por artículo".
 - **Persistencia de archivos:** la app no recuerda los últimos archivos cargados entre reinicios; no hay indicador de progreso durante la carga.
-- **Empaquetado/entrega:** no hay instalador ni versionado/firma para entregar a un usuario no técnico (hoy se corre con `dotnet run` o sideload MSIX manual).
-- **Cobertura de pruebas de UI:** los stores, el exportador de requisición y la lógica del ViewModel tienen cobertura parcial.
+- **Empaquetado/entrega:** ya existe `tools/Create-WindowsInstaller.ps1` (genera el MSI en `dist/installer/`), pero falta versionado y firma para entregar a un usuario no técnico.
+- **`MainPageViewModel` es un god object:** ~3,600 líneas y ~150 miembros, con 40 `TextColumnFilter` declarados a mano y cuatro pipelines casi idénticos (Table / Transfer / Expedicion / Comparison), cada uno con su `Filter*Rows`, `Apply*TextSort` y `Refresh*FilterOptions`. Pendiente: un descriptor `TableColumn<TRow>` + un controlador genérico que colapse los doce métodos. *Refactor grande: merece su propia rama.*
+- **Claves de ordenamiento sin verificar:** XAML manda strings tipo `"Table:Difference"` que el ViewModel resuelve con `switch`. Hoy las 38 claves coinciden, pero un typo no falla en compilación ni en runtime: la columna simplemente deja de ordenar. Lo elimina el refactor anterior.
+- **Cobertura de pruebas de UI:** los stores ya tienen pruebas (`Core.Tests/Storage`), pero el exportador de requisición y la lógica del ViewModel siguen con cobertura parcial.
+
+### Persistencia local y datos compartidos
+
+Los stores de `Core/Storage` escriben JSON en `%LOCALAPPDATA%\PronosticosAbasto\`
+mediante `LocalJsonStorage.WriteAtomic` (archivo temporal + `File.Move` con
+reemplazo), así un corte a media escritura no deja un JSON truncado.
+
+Sigue siendo almacenamiento **por máquina y por usuario**: dos operadores no
+comparten marcas ni tránsito. Si eso llega a hacer falta, es un cambio de
+backend, no un ajuste de los stores.
