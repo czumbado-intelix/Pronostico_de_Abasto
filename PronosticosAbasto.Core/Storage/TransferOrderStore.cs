@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace PronosticosAbasto.Services;
+namespace PronosticosAbasto.Core.Storage;
 
 /// <summary>
 /// Tracks which articles and quantities have been marked as "ordered" (mandado
@@ -117,6 +117,32 @@ public sealed class TransferOrderStore
         }
     }
 
+    /// <summary>
+    /// Reemplaza de una sola vez todas las marcas del periodo. Pensado para las
+    /// operaciones masivas (enviar a transito, limpiar marcas): evita una
+    /// escritura a disco por cada fila tocada.
+    /// </summary>
+    public void ReplacePeriod(string company, string periodKey, IReadOnlyDictionary<string, decimal> orderedQuantities)
+    {
+        ArgumentNullException.ThrowIfNull(orderedQuantities);
+        if (string.IsNullOrWhiteSpace(company) || string.IsNullOrWhiteSpace(periodKey))
+        {
+            return;
+        }
+
+        var byArticle = GetOrCreate(company.Trim(), periodKey);
+        byArticle.Clear();
+        foreach (var (article, quantity) in orderedQuantities)
+        {
+            if (!string.IsNullOrWhiteSpace(article))
+            {
+                byArticle[article.Trim()] = Math.Max(0m, quantity);
+            }
+        }
+
+        Persist();
+    }
+
     public void ClearPeriod(string company, string periodKey)
     {
         if (!string.IsNullOrWhiteSpace(company) &&
@@ -167,12 +193,6 @@ public sealed class TransferOrderStore
     {
         try
         {
-            var directory = Path.GetDirectoryName(_filePath);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
             var payload = _data.ToDictionary(
                 company => company.Key,
                 company => company.Value.ToDictionary(
@@ -180,7 +200,7 @@ public sealed class TransferOrderStore
                     period => period.Value.ToDictionary(article => article.Key, article => article.Value, StringComparer.OrdinalIgnoreCase),
                     StringComparer.Ordinal),
                 StringComparer.OrdinalIgnoreCase);
-            File.WriteAllText(_filePath, JsonSerializer.Serialize(payload, SerializerOptions));
+            LocalJsonStorage.WriteAtomic(_filePath, payload, SerializerOptions);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -190,8 +210,7 @@ public sealed class TransferOrderStore
 
     private static string DefaultFilePath()
     {
-        var baseFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(baseFolder, "PronosticosAbasto", "transfer-orders.json");
+        return LocalJsonStorage.PathFor("transfer-orders.json");
     }
 
     private void LoadFromJson(JsonElement root)

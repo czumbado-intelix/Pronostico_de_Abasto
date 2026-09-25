@@ -2,7 +2,7 @@ using System.IO;
 using System.Text.Json;
 using PronosticosAbasto.Core.Analysis;
 
-namespace PronosticosAbasto.Services;
+namespace PronosticosAbasto.Core.Storage;
 
 /// <summary>
 /// Loads and persists the per-company traffic-light thresholds to
@@ -93,17 +93,11 @@ public sealed class CoverageThresholdStore
     {
         try
         {
-            var directory = Path.GetDirectoryName(_filePath);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
             var payload = _byCompany.ToDictionary(
                 entry => entry.Key,
                 entry => new ThresholdDto { Red = entry.Value.RedPercent, Healthy = entry.Value.HealthyPercent },
                 StringComparer.OrdinalIgnoreCase);
-            File.WriteAllText(_filePath, JsonSerializer.Serialize(payload, SerializerOptions));
+            LocalJsonStorage.WriteAtomic(_filePath, payload, SerializerOptions);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -113,7 +107,6 @@ public sealed class CoverageThresholdStore
 
     private static string DefaultFilePath()
     {
-        var baseFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(baseFolder, "PronosticosAbasto", "coverage-thresholds.json");
+        return LocalJsonStorage.PathFor("coverage-thresholds.json");
     }
 }

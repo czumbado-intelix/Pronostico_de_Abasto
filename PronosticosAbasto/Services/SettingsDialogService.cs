@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using PronosticosAbasto.Controls;
 using PronosticosAbasto.Core.Analysis;
 using PronosticosAbasto.Core.IO;
+using PronosticosAbasto.Core.Storage;
 using PronosticosAbasto.ViewModels;
 
 namespace PronosticosAbasto.Services;

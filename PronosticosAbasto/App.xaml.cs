@@ -93,21 +93,29 @@ public partial class App : Application
         return ElementTheme.Light;
     }
 
+    /// <summary>Ruta del log de errores no controlados.</summary>
+    public static string CrashLogPath =>
+        System.IO.Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
+            Core.Storage.LocalJsonStorage.FolderName,
+            "crash.log");
+
+    /// <summary>Evita una cascada de dialogos si la misma falla se repite en rafaga.</summary>
+    private bool _isReportingUnhandledException;
+
     /// <summary>
-    /// Last-resort handler: log the exception so it is not lost and keep the app
-    /// alive instead of terminating on an unhandled UI-thread exception.
+    /// Ultimo recurso: registra la excepcion y mantiene la app viva en lugar de
+    /// terminar, pero <b>avisando al operador</b>. Tragarla en silencio dejaba la
+    /// app corriendo en un estado posiblemente inconsistente sin que nadie lo
+    /// supiera; el aviso deja claro que la ultima accion pudo no completarse.
     /// </summary>
     private void OnAppUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
         try
         {
-            var directory = System.IO.Path.Combine(
-                System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
-                "PronosticoDeAbasto");
-            System.IO.Directory.CreateDirectory(directory);
-            var logPath = System.IO.Path.Combine(directory, "crash.log");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(CrashLogPath)!);
             System.IO.File.AppendAllText(
-                logPath,
+                CrashLogPath,
                 $"=== {System.DateTime.Now:yyyy-MM-dd HH:mm:ss} ==={System.Environment.NewLine}{e.Message}{System.Environment.NewLine}{e.Exception}{System.Environment.NewLine}{System.Environment.NewLine}");
         }
         catch
@@ -116,6 +124,53 @@ public partial class App : Application
         }
 
         e.Handled = true;
+        NotifyUnhandledException(e.Message);
+    }
+
+    private void NotifyUnhandledException(string message)
+    {
+        if (_isReportingUnhandledException)
+        {
+            return;
+        }
+
+        var xamlRoot = (Window?.Content as FrameworkElement)?.XamlRoot;
+        if (xamlRoot is null || DispatcherQueue is null)
+        {
+            return;
+        }
+
+        _isReportingUnhandledException = true;
+
+        // Fuera del handler: mostrar un dialogo desde dentro del propio evento
+        // de excepcion no controlada puede reentrar.
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            try
+            {
+                var dialog = new ContentDialog
+                {
+                    XamlRoot = xamlRoot,
+                    Title = "Ocurrio un error inesperado",
+                    Content =
+                        $"{message}{System.Environment.NewLine}{System.Environment.NewLine}" +
+                        "La app sigue abierta, pero la ultima accion pudo no completarse. " +
+                        "Verifica el resultado antes de continuar." +
+                        $"{System.Environment.NewLine}{System.Environment.NewLine}Detalle en: {CrashLogPath}",
+                    CloseButtonText = "Entendido",
+                };
+
+                await dialog.ShowAsync();
+            }
+            catch
+            {
+                // Si ni siquiera se puede mostrar el dialogo, el log ya quedo escrito.
+            }
+            finally
+            {
+                _isReportingUnhandledException = false;
+            }
+        });
     }
 
     /// <summary>

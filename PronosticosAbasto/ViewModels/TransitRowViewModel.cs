@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using PronosticosAbasto.Core.Storage;
 using PronosticosAbasto.Services;
 
 namespace PronosticosAbasto.ViewModels;

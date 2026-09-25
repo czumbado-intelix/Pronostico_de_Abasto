@@ -2,7 +2,7 @@ using System.IO;
 using System.Text.Json;
 using PronosticosAbasto.Core.Analysis;
 
-namespace PronosticosAbasto.Services;
+namespace PronosticosAbasto.Core.Storage;
 
 public sealed class TransferTransitStore
 {
@@ -191,13 +191,7 @@ public sealed class TransferTransitStore
     {
         try
         {
-            var directory = Path.GetDirectoryName(_filePath);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.WriteAllText(_filePath, JsonSerializer.Serialize(_items, SerializerOptions));
+            LocalJsonStorage.WriteAtomic(_filePath, _items, SerializerOptions);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -207,8 +201,7 @@ public sealed class TransferTransitStore
 
     private static string DefaultFilePath()
     {
-        var baseFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(baseFolder, "PronosticosAbasto", "transfer-transit.json");
+        return LocalJsonStorage.PathFor("transfer-transit.json");
     }
 
     private static bool IsCompany(TransferTransitItem item, string company) =>

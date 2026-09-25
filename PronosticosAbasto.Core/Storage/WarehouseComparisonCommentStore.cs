@@ -2,7 +2,7 @@ using System.IO;
 using System.Text.Json;
 using PronosticosAbasto.Core.Analysis;
 
-namespace PronosticosAbasto.Services;
+namespace PronosticosAbasto.Core.Storage;
 
 public sealed class WarehouseComparisonCommentStore
 {
@@ -124,13 +124,7 @@ public sealed class WarehouseComparisonCommentStore
     {
         try
         {
-            var directory = Path.GetDirectoryName(_filePath);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.WriteAllText(_filePath, JsonSerializer.Serialize(_comments, SerializerOptions));
+            LocalJsonStorage.WriteAtomic(_filePath, _comments, SerializerOptions);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -140,7 +134,6 @@ public sealed class WarehouseComparisonCommentStore
 
     private static string DefaultFilePath()
     {
-        var baseFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(baseFolder, "PronosticosAbasto", "warehouse-comparison-comments.json");
+        return LocalJsonStorage.PathFor("warehouse-comparison-comments.json");
     }
 }

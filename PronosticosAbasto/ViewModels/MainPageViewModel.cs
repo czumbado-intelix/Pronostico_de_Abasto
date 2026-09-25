@@ -14,6 +14,7 @@ using Microsoft.UI.Xaml.Controls;
 using PronosticosAbasto.Core.Analysis;
 using SkiaSharp;
 using PronosticosAbasto.Core.IO;
+using PronosticosAbasto.Core.Storage;
 using PronosticosAbasto.Services;
 using Windows.Storage;
 
@@ -34,6 +35,7 @@ public partial class MainPageViewModel : ObservableObject
     private readonly CoverageThresholdStore _coverageThresholdStore;
     private readonly SettingsDialogService _settingsDialogService;
     private readonly TransferTransitStore _transferTransitStore;
+    private readonly TransferOrderStore _transferOrderStore;
     private readonly ExpedicionesWorkbookParser _expedicionesParser = new();
     private readonly SatellitePreparedArticleWorkbookParser _satellitePreparedArticleParser = new();
     private readonly TarimaSizeWorkbookParser _tarimaSizeParser = new();
@@ -48,6 +50,13 @@ public partial class MainPageViewModel : ObservableObject
             StringComparer.OrdinalIgnoreCase);
 
     private bool _isRestoringState;
+
+    /// <summary>
+    /// Activo mientras una operacion masiva toca muchas filas: suprime la
+    /// escritura por fila para dejar un solo guardado al final.
+    /// </summary>
+    private bool _isBulkOrderUpdate;
+
     private WeeklyAnalysisResult? _filteredAnalysis;
     private IReadOnlyList<ArticleResultRowViewModel> _allResults = Array.Empty<ArticleResultRowViewModel>();
     private IReadOnlyList<ArticleResultRowViewModel> _filteredResults = Array.Empty<ArticleResultRowViewModel>();
@@ -73,7 +82,8 @@ public partial class MainPageViewModel : ObservableObject
             new WarehouseComparisonCommentStore(CompanyCatalog),
             new CoverageThresholdStore(),
             new SettingsDialogService(),
-            new TransferTransitStore())
+            new TransferTransitStore(),
+            new TransferOrderStore())
     {
     }
 
@@ -90,7 +100,8 @@ public partial class MainPageViewModel : ObservableObject
         WarehouseComparisonCommentStore warehouseComparisonCommentStore,
         CoverageThresholdStore coverageThresholdStore,
         SettingsDialogService settingsDialogService,
-        TransferTransitStore transferTransitStore)
+        TransferTransitStore transferTransitStore,
+        TransferOrderStore transferOrderStore)
     {
         _inventoryParser = inventoryParser;
         _forecastParser = forecastParser;
@@ -105,6 +116,7 @@ public partial class MainPageViewModel : ObservableObject
         _coverageThresholdStore = coverageThresholdStore;
         _settingsDialogService = settingsDialogService;
         _transferTransitStore = transferTransitStore;
+        _transferOrderStore = transferOrderStore;
 
         TableArticuloFilter = new TextColumnFilter(FilterTableRows);
         TableForecastFilter = new TextColumnFilter(FilterTableRows);
@@ -2336,14 +2348,23 @@ public partial class MainPageViewModel : ObservableObject
 
     private async Task<ExpedicionesAnalysisResult> BuildExpedicionesAnalysisAsync(
         ExpedicionesWorkbook expediciones,
-        InventoryWorkbook inventory) =>
-        await Task.Run(() =>
+        InventoryWorkbook inventory)
+    {
+        // Ver AnalyzeTransferAsync: la empresa y su configuracion se leen en el
+        // hilo de UI, antes de saltar al hilo de fondo.
+        var company = SelectedCompany;
+        var satelliteZones = _satelliteZoneStore.GetZonesFor(company);
+        var pendingTransit = _transferTransitStore.GetPendingTransit(company);
+        var excludedZones = _inventoryExcludedZoneStore.GetZonesFor(company);
+
+        return await Task.Run(() =>
             _expedicionesAnalyzer.Analyze(
                 expediciones.Lines,
                 inventory.Positions,
-                _satelliteZoneStore.GetZonesFor(SelectedCompany),
-                _transferTransitStore.GetPendingTransit(SelectedCompany),
-                _inventoryExcludedZoneStore.GetZonesFor(SelectedCompany)));
+                satelliteZones,
+                pendingTransit,
+                excludedZones));
+    }
 
     private void ResetExpedicionFiltersForNewLoad()
     {
@@ -2447,7 +2468,16 @@ public partial class MainPageViewModel : ObservableObject
             line.RemainingShortageAfterTransfer > 0m ||
             line.PendingTransitQuantity > 0m);
 
-    private WarehouseComparisonResult? AnalyzeWarehouseComparison(CompanyAnalysisSession session, DateOnly startPeriod)
+    /// <remarks>
+    /// <paramref name="excludedZones"/> y <paramref name="descriptions"/> se
+    /// reciben ya resueltos porque este metodo corre en un hilo de fondo: no
+    /// debe leer estado observable del ViewModel.
+    /// </remarks>
+    private WarehouseComparisonResult? AnalyzeWarehouseComparison(
+        CompanyAnalysisSession session,
+        DateOnly startPeriod,
+        IReadOnlyList<string> excludedZones,
+        IReadOnlyDictionary<string, string> descriptions)
     {
         if (session.ComparisonInventoryWorkbook is null || session.ComparisonForecastWorkbook is null)
         {
@@ -2459,8 +2489,8 @@ public partial class MainPageViewModel : ObservableObject
             session.ComparisonForecastWorkbook.Entries,
             session.ComparisonForecastWorkbook.AvailableWeeks,
             startPeriod,
-            _inventoryExcludedZoneStore.GetZonesFor(SelectedCompany),
-            CurrentComparisonDescriptions(session));
+            excludedZones,
+            descriptions);
     }
 
     private static DateOnly? ResolveSelectableComparisonStartPeriod(
@@ -2587,8 +2617,16 @@ public partial class MainPageViewModel : ObservableObject
             var selectedWeek = SelectedWeek?.Value
                 ?? throw new InvalidOperationException("No hay una semana seleccionada.");
             var horizon = SelectedHorizon?.Value ?? AnalysisHorizon.Weeks(4);
-            var thresholds = _coverageThresholdStore.GetFor(SelectedCompany);
             var periodKey = selectedWeek.ToString("yyyy-MM-dd");
+
+            // Todo lo que depende de la empresa se resuelve aqui, en el hilo de
+            // UI: leer SelectedCompany dentro del Task.Run permitia analizar con
+            // la empresa cambiada a medias si el usuario la alternaba.
+            var company = SelectedCompany;
+            var thresholds = _coverageThresholdStore.GetFor(company);
+            var satelliteZones = _satelliteZoneStore.GetZonesFor(company);
+            var pendingTransit = _transferTransitStore.GetPendingTransit(company, periodKey);
+            var excludedZones = _inventoryExcludedZoneStore.GetZonesFor(company);
 
             var analysis = await Task.Run(() =>
                 _weeklyForecastAnalyzer.Analyze(
@@ -2597,9 +2635,9 @@ public partial class MainPageViewModel : ObservableObject
                     selectedWeek,
                     horizon,
                     thresholds,
-                    _satelliteZoneStore.GetZonesFor(SelectedCompany),
-                    _transferTransitStore.GetPendingTransit(SelectedCompany, periodKey),
-                    _inventoryExcludedZoneStore.GetZonesFor(SelectedCompany)));
+                    satelliteZones,
+                    pendingTransit,
+                    excludedZones));
 
             session.SelectedWeek = selectedWeek;
             session.Horizon = horizon;
@@ -2625,7 +2663,10 @@ public partial class MainPageViewModel : ObservableObject
             var comparisonStartPeriod = SelectedWeek?.Value
                 ?? session.ComparisonSelectedPeriod
                 ?? throw new InvalidOperationException("No hay una semana de inicio seleccionada para Comparativa.");
-            var comparison = await Task.Run(() => AnalyzeWarehouseComparison(session, comparisonStartPeriod));
+            var excludedZones = _inventoryExcludedZoneStore.GetZonesFor(SelectedCompany);
+            var descriptions = CurrentComparisonDescriptions(session);
+            var comparison = await Task.Run(() =>
+                AnalyzeWarehouseComparison(session, comparisonStartPeriod, excludedZones, descriptions));
 
             session.ComparisonSelectedPeriod = comparisonStartPeriod;
             session.LastWarehouseComparison = comparison;
@@ -2658,9 +2699,10 @@ public partial class MainPageViewModel : ObservableObject
 
         await ExecuteBusyActionAsync(async () =>
         {
-            var preparedArticles = _satellitePreparedArticleStore.GetArticleSetFor(SelectedCompany);
-            var tarimaSizes = _tarimaSizeStore.GetMapFor(SelectedCompany);
-            var bytes = await Task.Run(() => _analysisWorkbookExporter.Export(SelectedCompany, analysis, preparedArticles, tarimaSizes));
+            var company = SelectedCompany;
+            var preparedArticles = _satellitePreparedArticleStore.GetArticleSetFor(company);
+            var tarimaSizes = _tarimaSizeStore.GetMapFor(company);
+            var bytes = await Task.Run(() => _analysisWorkbookExporter.Export(company, analysis, preparedArticles, tarimaSizes));
             await FileIO.WriteBytesAsync(destination, bytes);
             ShowMessage(
                 "Excel exportado",
@@ -2697,8 +2739,9 @@ public partial class MainPageViewModel : ObservableObject
                 WarehouseComparisonRows,
                 periodUnit,
                 comparison.PeriodCount);
+            var company = SelectedCompany;
             var bytes = await Task.Run(() => _analysisWorkbookExporter.ExportWarehouseComparison(
-                SelectedCompany,
+                company,
                 comparison,
                 visibleRows,
                 comments,
@@ -2734,16 +2777,17 @@ public partial class MainPageViewModel : ObservableObject
                 .Select(row => row.Article)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var descriptions = CurrentDescriptions();
-            var preparedArticles = _satellitePreparedArticleStore.GetArticleSetFor(SelectedCompany);
-            var tarimaSizes = _tarimaSizeStore.GetMapFor(SelectedCompany);
+            var company = SelectedCompany;
+            var preparedArticles = _satellitePreparedArticleStore.GetArticleSetFor(company);
+            var tarimaSizes = _tarimaSizeStore.GetMapFor(company);
             var selectedPallets = _allTransferRows
                 .ToDictionary(
                     row => InventoryZoneClassifier.NormalizeArticleKey(row.Article),
                     row => (IReadOnlyList<PalletInventoryDetail>)row.SelectedPallets,
                     StringComparer.OrdinalIgnoreCase);
-            var pendingPalletKeys = _transferTransitStore.GetPendingPalletKeys(SelectedCompany);
+            var pendingPalletKeys = _transferTransitStore.GetPendingPalletKeys(company);
             var bytes = await Task.Run(() => _analysisWorkbookExporter.ExportTransferRequisition(
-                SelectedCompany,
+                company,
                 analysis,
                 ordered,
                 descriptions,
@@ -2764,9 +2808,23 @@ public partial class MainPageViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanClearOrders))]
     private void ClearOrders()
     {
-        foreach (var row in _allTransferRows.Where(row => row.CanOrder))
+        _isBulkOrderUpdate = true;
+        try
         {
-            row.IsOrdered = false;
+            foreach (var row in _allTransferRows.Where(row => row.CanOrder))
+            {
+                row.IsOrdered = false;
+            }
+        }
+        finally
+        {
+            _isBulkOrderUpdate = false;
+        }
+
+        var periodKey = CurrentPeriodKey;
+        if (!string.IsNullOrEmpty(periodKey))
+        {
+            _transferOrderStore.ClearPeriod(SelectedCompany, periodKey);
         }
 
         OrderedCount = 0;
@@ -2803,12 +2861,34 @@ public partial class MainPageViewModel : ObservableObject
             now)));
 
         var result = _transferTransitStore.AddPending(items);
-        foreach (var row in selectedRows)
+        _isBulkOrderUpdate = true;
+        try
         {
-            row.IsOrdered = false;
+            foreach (var row in selectedRows)
+            {
+                row.IsOrdered = false;
+            }
+        }
+        finally
+        {
+            _isBulkOrderUpdate = false;
         }
 
-        OrderedCount = 0;
+        // Las filas enviadas dejan de estar marcadas, pero las que seguian
+        // marcadas sin palets seleccionados conservan su marca: un solo guardado
+        // con el estado resultante del periodo.
+        var sentPeriodKey = CurrentPeriodKey;
+        if (!string.IsNullOrEmpty(sentPeriodKey))
+        {
+            _transferOrderStore.ReplacePeriod(
+                SelectedCompany,
+                sentPeriodKey,
+                _allTransferRows
+                    .Where(row => row.CanOrder && row.IsOrdered)
+                    .ToDictionary(row => row.Article, row => row.TransferSuggestionQuantity, StringComparer.OrdinalIgnoreCase));
+        }
+
+        OrderedCount = _allTransferRows.Count(row => row.IsOrdered && row.CanOrder);
         ClearOrdersCommand.NotifyCanExecuteChanged();
         await RefreshAfterTransitChangeAsync();
 
@@ -2973,6 +3053,11 @@ public partial class MainPageViewModel : ObservableObject
         var tarimaSizes = _tarimaSizeStore.GetMapFor(SelectedCompany);
         var periodUnit = CurrentSession.Granularity == ForecastGranularity.Monthly ? "mes" : "sem";
 
+        // Marcas "mandado a traer" guardadas para esta empresa y este periodo: sin
+        // esto, re-analizar o reabrir la app borraba en silencio lo que el
+        // operador ya habia marcado.
+        var orderedArticles = _transferOrderStore.GetOrdered(SelectedCompany, CurrentPeriodKey);
+
         var rows = new List<TransferRowViewModel>();
         foreach (var article in analysisResult.Articles
             .Where(article => article.TransferSuggestionQuantity > 0)
@@ -2986,7 +3071,7 @@ public partial class MainPageViewModel : ObservableObject
                 description);
             var row = new TransferRowViewModel(
                 article,
-                false,
+                orderedArticles.Contains(article.Article),
                 OnTransferRowOrderedChanged,
                 description,
                 BuildCoverageText(article.CoverageWeeks, analysisResult.AnalyzedWeeks, periodUnit),
@@ -3023,16 +3108,44 @@ public partial class MainPageViewModel : ObservableObject
             return;
         }
 
+        PersistOrderedMark(row);
         OrderedCount = _allTransferRows.Count(transferRow => transferRow.IsOrdered && transferRow.CanOrder);
         SendSelectedToTransitCommand.NotifyCanExecuteChanged();
     }
 
     private void OnTransferRowQuantityChanged(TransferRowViewModel row)
     {
+        if (row.CanOrder && row.IsOrdered)
+        {
+            PersistOrderedMark(row);
+        }
+
         OrderedCount = _allTransferRows.Count(transferRow => transferRow.IsOrdered && transferRow.CanOrder);
         TransferVisibleTotal = TransferRows.Count;
         RefreshTransferFilterOptions(TransferRows);
         SendSelectedToTransitCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Guarda (o borra) la marca "mandado a traer" de una fila para la empresa y
+    /// el periodo analizado. La cantidad se guarda solo como referencia: al
+    /// recargar se restaura la marca, no la cantidad, porque esta se deriva de
+    /// los palets seleccionados y debe recalcularse contra el inventario vigente.
+    /// </summary>
+    private void PersistOrderedMark(TransferRowViewModel row)
+    {
+        var periodKey = CurrentPeriodKey;
+        if (_isBulkOrderUpdate || string.IsNullOrEmpty(periodKey))
+        {
+            return;
+        }
+
+        _transferOrderStore.SetOrdered(
+            SelectedCompany,
+            periodKey,
+            row.Article,
+            row.IsOrdered,
+            row.TransferSuggestionQuantity);
     }
 
     [RelayCommand(CanExecute = nameof(CanManageSettings))]

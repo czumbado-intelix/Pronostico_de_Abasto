@@ -2,32 +2,26 @@ using System.IO;
 using System.Text.Json;
 using PronosticosAbasto.Core.Configuration;
 
-namespace PronosticosAbasto.Services;
+namespace PronosticosAbasto.Core.Storage;
 
 /// <summary>
-/// Loads and persists the per-company external (satellite) zone configuration.
-/// Settings live in <c>%LOCALAPPDATA%\PronosticosAbasto\satellite-zones.json</c>
-/// so they survive app updates and work both packaged and unpackaged. Any
-/// missing company is seeded from <see cref="SatelliteZoneDefaults"/>, and a
-/// corrupt or unreadable file silently falls back to defaults.
+/// Loads and persists zones that should be ignored from the inventory report.
+/// Settings live in %LOCALAPPDATA%\PronosticosAbasto\inventory-excluded-zones.json.
 /// </summary>
-public sealed class SatelliteZoneStore
+public sealed class InventoryExcludedZoneStore
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        WriteIndented = true,
-    };
+    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
     private readonly IReadOnlyList<string> _companies;
     private readonly string _filePath;
     private SatelliteZoneSettings _settings;
 
-    public SatelliteZoneStore(IEnumerable<string> companies)
+    public InventoryExcludedZoneStore(IEnumerable<string> companies)
         : this(companies, DefaultFilePath())
     {
     }
 
-    public SatelliteZoneStore(IEnumerable<string> companies, string filePath)
+    public InventoryExcludedZoneStore(IEnumerable<string> companies, string filePath)
     {
         ArgumentNullException.ThrowIfNull(companies);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -59,33 +53,27 @@ public sealed class SatelliteZoneStore
                         entry => entry.Key,
                         entry => (IReadOnlyList<string>)entry.Value,
                         StringComparer.OrdinalIgnoreCase);
-                    return SatelliteZoneSettings.Create(_companies, SatelliteZoneDefaults.Zones, overrides);
+                    return SatelliteZoneSettings.Create(_companies, InventoryExcludedZoneDefaults.Zones, overrides);
                 }
             }
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
         {
-            // Corrupt or unreadable config: fall back to defaults so the app stays usable.
+            // Corrupt or unreadable config: fall back to defaults so analysis stays usable.
         }
 
-        return SatelliteZoneSettings.Create(_companies, SatelliteZoneDefaults.Zones);
+        return SatelliteZoneSettings.Create(_companies, InventoryExcludedZoneDefaults.Zones);
     }
 
     private void Persist()
     {
         try
         {
-            var directory = Path.GetDirectoryName(_filePath);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
             var payload = _settings.ToDictionary().ToDictionary(
                 entry => entry.Key,
                 entry => entry.Value.ToList(),
                 StringComparer.OrdinalIgnoreCase);
-            File.WriteAllText(_filePath, JsonSerializer.Serialize(payload, SerializerOptions));
+            LocalJsonStorage.WriteAtomic(_filePath, payload, SerializerOptions);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -95,7 +83,6 @@ public sealed class SatelliteZoneStore
 
     private static string DefaultFilePath()
     {
-        var baseFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(baseFolder, "PronosticosAbasto", "satellite-zones.json");
+        return LocalJsonStorage.PathFor("inventory-excluded-zones.json");
     }
 }
