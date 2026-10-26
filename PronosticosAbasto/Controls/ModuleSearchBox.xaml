@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="PronosticosAbasto.Controls.ModuleSearchBox"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Altura fija: el resumen va dentro de la caja para no mover los botones de la barra. -->
+    <Grid Height="36" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+        <TextBox
+            x:Name="Input"
+            Height="36"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Center"
+            Padding="38,7,12,7"
+            AcceptsReturn="False"
+            IsSpellCheckEnabled="False"
+            PlaceholderText="{x:Bind PlaceholderText, Mode=OneWay}"
+            Style="{StaticResource GuardianTextBoxStyle}"
+            VerticalContentAlignment="Center"
+            Text="{x:Bind Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            Paste="Input_Paste"
+            KeyDown="Input_KeyDown"
+            GotFocus="Input_FocusChanged"
+            LostFocus="Input_FocusChanged"
+            AutomationProperties.Name="{x:Bind PlaceholderText, Mode=OneWay}"
+            AutomationProperties.HelpText="Varias palabras en cualquier orden; coma para alternativas; se puede pegar una lista de articulos. Enter busca, Esc borra.">
+            <ToolTipService.ToolTip>
+                <ToolTip>
+                    <StackPanel Spacing="4" MaxWidth="320">
+                        <TextBlock Text="Como buscar" FontWeight="SemiBold" />
+                        <TextBlock TextWrapping="Wrap" Text="Varias palabras: tienen que aparecer todas, en cualquier orden. «pvc codo» encuentra CODO PVC 1/2." />
+                        <TextBlock TextWrapping="Wrap" Text="Coma o punto y coma: una cosa u otra. «codo, tee»." />
+                        <TextBlock TextWrapping="Wrap" Text="Pegar una lista de articulos (columna de Excel o correo): los busca todos y avisa cuales no estan." />
+                        <TextBlock TextWrapping="Wrap" Text="No importan mayusculas ni tildes. Enter busca ya · Esc borra · Ctrl+F vuelve aqui." />
+                    </StackPanel>
+                </ToolTip>
+            </ToolTipService.ToolTip>
+        </TextBox>
+
+        <FontIcon
+            Width="18"
+            Height="18"
+            FontFamily="Segoe MDL2 Assets"
+            Glyph="&#xE721;"
+            FontSize="16"
+            Foreground="{StaticResource StitchTextSoftBrush}"
+            IsHitTestVisible="False"
+            Margin="12,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center" />
+
+        <!-- Deja libre a la derecha el boton X propio del TextBox. -->
+        <Button
+            x:Name="SummaryButton"
+            SizeChanged="SummaryButton_SizeChanged"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Margin="0,0,34,0"
+            Padding="8,2"
+            MinHeight="24"
+            CornerRadius="12"
+            BorderThickness="0"
+            Background="{x:Bind SummaryBackground, Mode=OneWay}"
+            Visibility="{x:Bind SummaryVisibility, Mode=OneWay}"
+            ToolTipService.ToolTip="{x:Bind SummaryTooltip, Mode=OneWay}"
+            AutomationProperties.Name="{x:Bind SummaryTooltip, Mode=OneWay}">
+            <TextBlock
+                Text="{x:Bind SummaryBadge, Mode=OneWay}"
+                FontSize="11"
+                FontWeight="SemiBold"
+                Foreground="{x:Bind SummaryForeground, Mode=OneWay}" />
+            <Button.Flyout>
+                <Flyout Placement="BottomEdgeAlignedRight">
+                    <StackPanel Width="300" Spacing="8">
+                        <TextBlock Text="{x:Bind SummaryDetail, Mode=OneWay}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                        <ScrollViewer MaxHeight="240" Visibility="{x:Bind UnmatchedVisibility, Mode=OneWay}">
+                            <TextBlock
+                                Text="{x:Bind UnmatchedText, Mode=OneWay}"
+                                IsTextSelectionEnabled="True"
+                                FontFamily="Consolas"
+                                TextWrapping="Wrap" />
+                        </ScrollViewer>
+                        <Button
+                            Content="Copiar los que no aparecieron"
+                            HorizontalAlignment="Right"
+                            Visibility="{x:Bind UnmatchedVisibility, Mode=OneWay}"
+                            Click="CopyUnmatched_Click"
+                            Style="{StaticResource GuardianSecondaryButtonStyle}" />
+                    </StackPanel>
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+    </Grid>
+</UserControl>

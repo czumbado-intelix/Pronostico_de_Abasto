@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using PronosticosAbasto.Core.Analysis;
 
 namespace PronosticosAbasto.Core.Storage;
@@ -10,6 +11,7 @@ public sealed class TransferTransitStore
 
     private readonly string _filePath;
     private readonly List<TransferTransitItem> _items = [];
+    private bool _backupCreated;
 
     public TransferTransitStore()
         : this(DefaultFilePath())
@@ -23,30 +25,42 @@ public sealed class TransferTransitStore
         Load();
     }
 
-    public IReadOnlyList<TransferTransitItem> GetPending(string company) =>
+    public IReadOnlyList<TransferTransitItem> GetAll(string company) =>
         _items
-            .Where(item => IsCompany(item, company) && !item.IsReceived)
-            .OrderBy(item => item.Origin, StringComparer.OrdinalIgnoreCase)
+            .Where(item => IsCompany(item, company))
+            .OrderBy(item => TransitStatusSort(item))
+            .ThenBy(item => item.Origin, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Location, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Article, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.ValidationDate ?? DateOnly.MaxValue)
             .ThenBy(item => item.Pallet, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+    public IReadOnlyList<TransferTransitItem> GetPending(string company) =>
+        GetAll(company)
+            .Where(item => !item.IsReceived && !item.IsReconciled)
+            .ToArray();
+
+    public IReadOnlyList<TransferTransitItem> GetReceivedPendingInventory(string company) =>
+        GetAll(company)
+            .Where(item => item.IsReceived && !item.IsReconciled)
+            .ToArray();
+
+    public IReadOnlyList<TransferTransitItem> GetReconciled(string company) =>
+        GetAll(company)
+            .Where(item => item.IsReconciled)
+            .ToArray();
+
     public IReadOnlyDictionary<string, decimal> GetPendingTransit(string company, string? currentPeriodKey = null)
     {
+        // Transit only represents pallets that are still pending to receive.
+        // Once a pallet is marked as received it stays in history, but stops
+        // reducing new transfer analysis.
+        _ = currentPeriodKey;
         var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        var hasCurrentPeriod = TryParsePeriodKey(currentPeriodKey, out var currentPeriod);
 
-        foreach (var item in _items.Where(item => IsCompany(item, company) && !item.IsReceived && item.Quantity > 0m))
+        foreach (var item in _items.Where(item => IsCompany(item, company) && !item.IsReceived && !item.IsReconciled && item.Quantity > 0m))
         {
-            if (hasCurrentPeriod &&
-                TryParsePeriodKey(item.PeriodKey, out var itemPeriod) &&
-                itemPeriod >= currentPeriod)
-            {
-                continue;
-            }
-
             result[item.Article] = result.GetValueOrDefault(item.Article, 0m) + item.Quantity;
         }
 
@@ -55,8 +69,17 @@ public sealed class TransferTransitStore
 
     public IReadOnlySet<string> GetPendingPalletKeys(string company) =>
         GetPending(company)
-            .Select(item => BuildPalletKey(item.Article, item.Pallet, item.StorageZone, item.Location))
+            .Select(item => BuildTransitPalletKey(item.Article, item.Pallet))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> GetOutstandingPalletKeys(string company, string? currentPeriodKey = null)
+    {
+        // Only active transit should affect a new analysis. Received rows stay
+        // available as history, but they must not hide inventory from the Excel
+        // import or create false shortages on another workstation.
+        _ = currentPeriodKey;
+        return GetPendingPalletKeys(company);
+    }
 
     public TransitAddResult AddPending(IEnumerable<TransferTransitItem> items)
     {
@@ -65,21 +88,20 @@ public sealed class TransferTransitStore
 
         foreach (var item in items)
         {
-            if (string.IsNullOrWhiteSpace(item.Company) ||
-                string.IsNullOrWhiteSpace(item.Article) ||
-                string.IsNullOrWhiteSpace(item.Pallet) ||
-                item.Quantity <= 0m)
+            var normalized = NormalizeItem(item);
+            if (!CanPersist(normalized))
             {
                 skipped++;
                 continue;
             }
 
-            var key = BuildPalletKey(item.Article, item.Pallet, item.StorageZone, item.Location);
+            var key = BuildTransitPalletKey(normalized.Article, normalized.Pallet);
             var exists = _items.Any(existing =>
-                IsCompany(existing, item.Company) &&
+                IsCompany(existing, normalized.Company) &&
                 !existing.IsReceived &&
+                !existing.IsReconciled &&
                 string.Equals(
-                    BuildPalletKey(existing.Article, existing.Pallet, existing.StorageZone, existing.Location),
+                    BuildTransitPalletKey(existing.Article, existing.Pallet),
                     key,
                     StringComparison.OrdinalIgnoreCase));
 
@@ -89,31 +111,17 @@ public sealed class TransferTransitStore
                 continue;
             }
 
-            _items.Add(item with
-            {
-                Id = string.IsNullOrWhiteSpace(item.Id) ? Guid.NewGuid().ToString("N") : item.Id,
-                Company = item.Company.Trim(),
-                PeriodKey = item.PeriodKey.Trim(),
-                Article = item.Article.Trim(),
-                Description = item.Description.Trim(),
-                Pallet = item.Pallet.Trim(),
-                StorageZone = item.StorageZone.Trim(),
-                Location = item.Location.Trim(),
-                TarimaSize = item.TarimaSize.Trim(),
-                Origin = string.IsNullOrWhiteSpace(item.Origin)
-                    ? StorageOriginClassifier.Resolve(item.StorageZone)
-                    : item.Origin.Trim(),
-                CreatedAt = item.CreatedAt == default ? DateTimeOffset.Now : item.CreatedAt,
-            });
+            _items.Add(normalized);
             added++;
         }
 
+        var saved = true;
         if (added > 0)
         {
-            Persist();
+            saved = Persist();
         }
 
-        return new TransitAddResult(added, skipped);
+        return new TransitAddResult(added, skipped, saved);
     }
 
     public int MarkReceived(IEnumerable<string> ids)
@@ -131,7 +139,7 @@ public sealed class TransferTransitStore
         for (var index = 0; index < _items.Count; index++)
         {
             var item = _items[index];
-            if (!item.IsReceived && idSet.Contains(item.Id))
+            if (!item.IsReceived && !item.IsReconciled && idSet.Contains(item.Id))
             {
                 _items[index] = item with { ReceivedAt = now };
                 count++;
@@ -157,14 +165,60 @@ public sealed class TransferTransitStore
             .Where(item =>
                 IsCompany(item, company) &&
                 !item.IsReceived &&
+                !item.IsReconciled &&
                 string.Equals(item.Article, article.Trim(), StringComparison.OrdinalIgnoreCase))
             .Select(item => item.Id)
             .ToArray();
         return MarkReceived(ids);
     }
 
+    public int ReconcileReceived(string company, IReadOnlySet<string> principalPalletKeys)
+    {
+        _ = company;
+        _ = principalPalletKeys;
+        return 0;
+    }
+
     public static string BuildPalletKey(string article, string pallet, string storageZone, string location) =>
         PalletIdentity.Build(article, pallet, storageZone, location);
+
+    private static string BuildTransitPalletKey(string article, string pallet) =>
+        PalletIdentity.BuildArticlePallet(article, pallet);
+
+    private static TransferTransitItem NormalizeItem(TransferTransitItem item)
+    {
+        var storageZone = TrimOrEmpty(item.StorageZone);
+
+        return item with
+        {
+            Id = string.IsNullOrWhiteSpace(item.Id) ? Guid.NewGuid().ToString("N") : item.Id.Trim(),
+            Company = TrimOrEmpty(item.Company),
+            PeriodKey = TrimOrEmpty(item.PeriodKey),
+            Article = TrimOrEmpty(item.Article),
+            Description = TrimOrEmpty(item.Description),
+            Pallet = TrimOrEmpty(item.Pallet),
+            StorageZone = storageZone,
+            Location = TrimOrEmpty(item.Location),
+            TarimaSize = TrimOrEmpty(item.TarimaSize),
+            Origin = string.IsNullOrWhiteSpace(item.Origin)
+                ? StorageOriginClassifier.Resolve(storageZone)
+                : item.Origin.Trim(),
+            CreatedAt = item.CreatedAt == default ? DateTimeOffset.Now : item.CreatedAt,
+        };
+    }
+
+    private static bool CanPersist(TransferTransitItem item) =>
+        !string.IsNullOrWhiteSpace(item.Company) &&
+        !string.IsNullOrWhiteSpace(item.Article) &&
+        !string.IsNullOrWhiteSpace(item.Pallet) &&
+        item.Quantity > 0m;
+
+    private static string TrimOrEmpty(string? value) => value?.Trim() ?? string.Empty;
+
+    private static int TransitStatusSort(TransferTransitItem item) =>
+        item.IsReconciled ? 2 :
+        item.IsReceived ? 1 :
+        0;
 
     private void Load()
     {
@@ -178,7 +232,7 @@ public sealed class TransferTransitStore
             var items = JsonSerializer.Deserialize<List<TransferTransitItem>>(File.ReadAllText(_filePath));
             if (items is not null)
             {
-                _items.AddRange(items.Where(item => !string.IsNullOrWhiteSpace(item.Id)));
+                _items.AddRange(items.Select(NormalizeItem).Where(CanPersist));
             }
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
@@ -187,16 +241,33 @@ public sealed class TransferTransitStore
         }
     }
 
-    private void Persist()
+    private bool Persist()
     {
         try
         {
+            EnsureBackupBeforeFirstWrite();
             LocalJsonStorage.WriteAtomic(_filePath, _items, SerializerOptions);
+            return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             // Best-effort persistence.
+            return false;
         }
+    }
+
+    private void EnsureBackupBeforeFirstWrite()
+    {
+        if (_backupCreated || !File.Exists(_filePath))
+        {
+            _backupCreated = true;
+            return;
+        }
+
+        var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        var backupPath = $"{_filePath}.bak-{timestamp}";
+        File.Copy(_filePath, backupPath, overwrite: false);
+        _backupCreated = true;
     }
 
     private static string DefaultFilePath()
@@ -206,7 +277,7 @@ public sealed class TransferTransitStore
 
     private static bool IsCompany(TransferTransitItem item, string company) =>
         !string.IsNullOrWhiteSpace(company) &&
-        string.Equals(item.Company.Trim(), company.Trim(), StringComparison.OrdinalIgnoreCase);
+        string.Equals(TrimOrEmpty(item.Company), company.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private static bool TryParsePeriodKey(string? periodKey, out DateOnly period)
     {
@@ -235,9 +306,14 @@ public sealed record TransferTransitItem(
     string TarimaSize,
     string Origin,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ReceivedAt = null)
+    DateTimeOffset? ReceivedAt = null,
+    DateTimeOffset? ReconciledAt = null)
 {
+    [JsonIgnore]
     public bool IsReceived => ReceivedAt is not null;
+
+    [JsonIgnore]
+    public bool IsReconciled => ReconciledAt is not null;
 }
 
-public sealed record TransitAddResult(int Added, int Skipped);
+public sealed record TransitAddResult(int Added, int Skipped, bool Saved = true);

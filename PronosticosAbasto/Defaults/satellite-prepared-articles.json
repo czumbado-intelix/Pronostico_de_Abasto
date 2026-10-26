@@ -1,0 +1,637 @@
+{
+  "EPA": [
+    {
+      "Article": "100002040",
+      "Description": "MARCO SEG PINO 30X65 MM (1 1/2X3\") FJ"
+    },
+    {
+      "Article": "100002041",
+      "Description": "MARCO SEG PINO 30X90 MM (1 1/2X4\") FJ"
+    },
+    {
+      "Article": "100002042",
+      "Description": "MARCO LISO PINO 20X90 MM (1X4\" )"
+    },
+    {
+      "Article": "100002063",
+      "Description": "PELDAÑO PINO ALIST 40X240 MM 1 M (2X10\")"
+    },
+    {
+      "Article": "100002071",
+      "Description": "PINO CEPILLADO 19X138 MM 3.2 M (1\"X6\")"
+    },
+    {
+      "Article": "100002072",
+      "Description": "PINO SECO CEPI 19X90 MM 3.2 M (1\"X4\")"
+    },
+    {
+      "Article": "100002073",
+      "Description": "PINO RUSTICO 23X300MM 3.2M 1X12 DE REUSO"
+    },
+    {
+      "Article": "100002074",
+      "Description": "PINO SECO CEPI 19X41 MM 3.2 M (1\"X2\")"
+    },
+    {
+      "Article": "100002075",
+      "Description": "PINO SECO CEPI 19X65 MM 3.2 M (1\"X3\")"
+    },
+    {
+      "Article": "100002076",
+      "Description": "PINO SECO CEPI 41X41 MM 3.2 M (2\"X2\")"
+    },
+    {
+      "Article": "100002077",
+      "Description": "PINO SECO CEPI 41X65 MM 3.2 M (2\"X3\")"
+    },
+    {
+      "Article": "100002079",
+      "Description": "PINO IMPREGNADO 41X65 MM 3.2 M (2\"X3\")"
+    },
+    {
+      "Article": "100002081",
+      "Description": "PINO SECO CEPI 41X90 MM 3.2 M (2\"X4\")"
+    },
+    {
+      "Article": "100002136",
+      "Description": "MELAMINA 4X8 15MM WENGUE"
+    },
+    {
+      "Article": "100002137",
+      "Description": "MELAMINA 4X8 15MM CEREZO"
+    },
+    {
+      "Article": "100002138",
+      "Description": "TAPACANTO 031 WENGUE"
+    },
+    {
+      "Article": "100002139",
+      "Description": "TAPACANTO 068 CEREZO"
+    },
+    {
+      "Article": "100002250",
+      "Description": "MELAMINA BLANCO RH 16MM 280X207 CM"
+    },
+    {
+      "Article": "100002252",
+      "Description": "MELAMINA BLANCO RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002253",
+      "Description": "MELAMINA R. BAROQUE RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002254",
+      "Description": "MELAMINA SIL. LIBERTY RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002255",
+      "Description": "MELAMINA NEGRA RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002256",
+      "Description": "MELAMINA D. ROCKFORD RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002257",
+      "Description": "MELAMINA CHARC. AVADONNA 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002258",
+      "Description": "MEL SATIN 19MM 280X207CM 7045SU"
+    },
+    {
+      "Article": "100002260",
+      "Description": "MEL OXIDE VINTAGE 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002261",
+      "Description": "MEL PETROL 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002263",
+      "Description": "MEL RISTRETTO BAROQUE 16 MM 280X207 CM"
+    },
+    {
+      "Article": "100002295",
+      "Description": "MELAMINA BLANCO 16 MM 122X244 CM"
+    },
+    {
+      "Article": "100002296",
+      "Description": "MEL BLANCO 16 MM 280X207 CM"
+    },
+    {
+      "Article": "100002299",
+      "Description": "MEL BLANCO A. BRILLO 19 MM 280X207 CM"
+    },
+    {
+      "Article": "100002302",
+      "Description": "MEL NEGRO 19 MM 280X207 CM"
+    },
+    {
+      "Article": "100002303",
+      "Description": "MELAMINA CHARCOAL FLOW 19MM 280X207 CM"
+    },
+    {
+      "Article": "100002307",
+      "Description": "TABLERO PINO ALI 18 MM 12.5X300 CM (1X5)"
+    },
+    {
+      "Article": "100002313",
+      "Description": "MELAMINA NEGRO 16 MM 122X244 CM"
+    },
+    {
+      "Article": "100002351",
+      "Description": "MDF 6 MM 122X244 CM"
+    },
+    {
+      "Article": "100002353",
+      "Description": "LHDF WENGUE 3 MM 280X207 CM"
+    },
+    {
+      "Article": "100002354",
+      "Description": "LHDF BLANCO 3 MM 280X207 CM"
+    },
+    {
+      "Article": "100002361",
+      "Description": "TABLERO DE MDF 6MM 4X8'"
+    },
+    {
+      "Article": "100002363",
+      "Description": "TABLERO DE MDF 12MM 4X8'"
+    },
+    {
+      "Article": "100002366",
+      "Description": "PLYWOOD OKUME B/B 3.6 MM 122X244 CM"
+    },
+    {
+      "Article": "100002367",
+      "Description": "PLYWOOD OKUME B/B 5.5 MM 122X244 CM"
+    },
+    {
+      "Article": "100002368",
+      "Description": "PLYWOOD OKUME B/B 9 MM 122X244 CM"
+    },
+    {
+      "Article": "100002370",
+      "Description": "PLYWOOD OKUME B/B 15 MM 122X244 CM"
+    },
+    {
+      "Article": "100002371",
+      "Description": "PLYWOOD OKUME B/B 18 MM 122X244 CM"
+    },
+    {
+      "Article": "100002372",
+      "Description": "PLYWOOD OKUME B/B 25 MM 122X244 CM"
+    },
+    {
+      "Article": "100002374",
+      "Description": "TABLERO DE PARTICULAS ORIENTADAS OSB  4X"
+    },
+    {
+      "Article": "100002375",
+      "Description": "PANEL PINO ALISTONADO 18 MM 122X244 CM"
+    },
+    {
+      "Article": "100002376",
+      "Description": "PANEL PINO ALISTONADO 30 MM 122X244 CM"
+    },
+    {
+      "Article": "100002380",
+      "Description": "TABLERO PINO ALIS 18 MM 30X300 CM (1X12)"
+    },
+    {
+      "Article": "100003259",
+      "Description": "SET DE CLIPS PARA WPC 40 PIEZAS"
+    },
+    {
+      "Article": "100003260",
+      "Description": "PANEL SPC BLANCO-GRIS 122X244 CM 3MM"
+    },
+    {
+      "Article": "100003262",
+      "Description": "PANEL SPC NEGRO 122X244 CM 3MM"
+    },
+    {
+      "Article": "100003270",
+      "Description": "PORCELANAT SUPER NEGRO 60X60 CM 1.44 M2"
+    },
+    {
+      "Article": "100003276",
+      "Description": "PORCELANAT MARFIL MATE 60X60 CM 1.44 M2"
+    },
+    {
+      "Article": "100003277",
+      "Description": "PORCELANATO 120X60 CEMENTO MATE GRIS 3CJ"
+    },
+    {
+      "Article": "100003279",
+      "Description": "PORCELANAT GRIS MATE 30X90 CM 1.35 M2"
+    },
+    {
+      "Article": "100003280",
+      "Description": "PORCELANAT GRIS MATE 120X60 CM 2.16 M2"
+    },
+    {
+      "Article": "100003286",
+      "Description": "PORCELANAT GRIS CLARO 60X60 CM 1.44 M2"
+    },
+    {
+      "Article": "100003291",
+      "Description": "PORCELANAT GRIS 20X120 CM 1.44 M2"
+    },
+    {
+      "Article": "100003297",
+      "Description": "PORCELANAT GRIS 60X120 CM 1.44 M2"
+    },
+    {
+      "Article": "100003299",
+      "Description": "PORCELANAT MARMOL GRIS 60X120 CM 2.16 M2"
+    },
+    {
+      "Article": "100003318",
+      "Description": "PISO DECK WPC CENIZA 2,5X14X220 CM"
+    },
+    {
+      "Article": "100003320",
+      "Description": "PORCELANAT CEMENT BLAN 60X60 CM 1.44 M2"
+    },
+    {
+      "Article": "100003322",
+      "Description": "PORCELANAT BEIGE LISO 60X60 CM 1.44 M2"
+    },
+    {
+      "Article": "100003390",
+      "Description": "CERAMICA NATURAL CAOBA 20X60 CM 1.13 M2"
+    },
+    {
+      "Article": "100003392",
+      "Description": "CERAMICA ACACIA MIEL 20X60 CM 1.13 M2"
+    },
+    {
+      "Article": "100003393",
+      "Description": "CERAMICA ARTIWOOD CAMEL 20X60 CM 1.13 M2"
+    },
+    {
+      "Article": "100003394",
+      "Description": "CERAMICA TORVICK GRIS 20X60 CM 1.13 M2"
+    },
+    {
+      "Article": "100003398",
+      "Description": "CERAMICA LENO WENGUE 20X60 CM 1.13 M2"
+    },
+    {
+      "Article": "100003474",
+      "Description": "AZULEJO ANDROS GRIS 25X50 CM 1.63 M2"
+    },
+    {
+      "Article": "100003476",
+      "Description": "AZULEJO ALBURY CAMEL 33X100 CM 1.33 M2"
+    },
+    {
+      "Article": "100003482",
+      "Description": "AZULEJO TOLEDO MULTICOLOR 20X58 CM 1 M2"
+    },
+    {
+      "Article": "100003487",
+      "Description": "CERAMICA PETRA MARFIL 60X60 CM 1.8 M2"
+    },
+    {
+      "Article": "100004174",
+      "Description": "BANERA DE HIDROMASAJE 185X120X58 CM"
+    },
+    {
+      "Article": "100004175",
+      "Description": "BANERA 170X75X58 CM"
+    },
+    {
+      "Article": "100017293",
+      "Description": "LAMINA DENSGLASS 12 MM 122X244 CM"
+    },
+    {
+      "Article": "100019405007",
+      "Description": "MELAMINA CANCUN 19MM 280X207 CM"
+    },
+    {
+      "Article": "100019405009",
+      "Description": "MELAMINA LOUSANA WENGUE 19MM 280X207 CM"
+    },
+    {
+      "Article": "100019405010",
+      "Description": "MELAMINA CONCRETE FLOW 19MM 280X207 CM"
+    },
+    {
+      "Article": "100019825",
+      "Description": "AZULEJO MOD LLG36001 SNOW WHITE 30X60 (1"
+    },
+    {
+      "Article": "100020611",
+      "Description": "DECK 14X2.5X220CM TECA"
+    },
+    {
+      "Article": "100020612",
+      "Description": "DECK 14X2.5X220CM CAFE"
+    },
+    {
+      "Article": "100020671",
+      "Description": "DUROPISO CANTERA GRIS 51X51CM 2.08M2/CJ"
+    },
+    {
+      "Article": "100020672",
+      "Description": "PISO DRACO GRIS 55.2X55.2CM 1.82M2/CJ"
+    },
+    {
+      "Article": "100020674",
+      "Description": "PISO CAPRI BLANCO 55.2X55.2CM 1.82M2/CJ"
+    },
+    {
+      "Article": "100020713",
+      "Description": "PLYWOOD 18 MM 1.22 M X 2.44 M"
+    },
+    {
+      "Article": "100020714",
+      "Description": "FENOLICO B/C 12 MM 1.22 M X 2.44 M"
+    },
+    {
+      "Article": "100020715",
+      "Description": "FENOLICO B/C 15 MM 1.22 M X 2.44 M"
+    },
+    {
+      "Article": "100020716",
+      "Description": "FENOLICO B/C 18 MM 1.22 M X 2.44 M"
+    },
+    {
+      "Article": "100020718",
+      "Description": "FENOLICO B/C 9 MM 1.22 M X 2.44 M"
+    },
+    {
+      "Article": "100020899",
+      "Description": "P.E. REGINA PERLA RECT. 60X60CM 1.44M2"
+    },
+    {
+      "Article": "100020900",
+      "Description": "P.E. REGINA CREMA RECT. 60X60CM 1.44M2"
+    },
+    {
+      "Article": "100020904",
+      "Description": "FEROE DECOR FRIO MT 25X50CM 1.63M2"
+    },
+    {
+      "Article": "100020905",
+      "Description": "FEROE PM MIX MT 25X50CM 1.5M2"
+    },
+    {
+      "Article": "100020906",
+      "Description": "P.E. PHASE BLANCO RECT. 60X60CM 1.41M2"
+    },
+    {
+      "Article": "100021052",
+      "Description": "POSTE REJA VERDE 1X0.6 M 2 CLIPS"
+    },
+    {
+      "Article": "100021080",
+      "Description": "LUMIERE BK NATURAL BR. 30X60CM 1.62M2"
+    },
+    {
+      "Article": "100021081",
+      "Description": "LUMIERE BLANCO BRILLANTE 30X60CM 1.8M2"
+    },
+    {
+      "Article": "100021082",
+      "Description": "LUMIERE HE BLANCO BR. 30X60CM 1.62M2"
+    },
+    {
+      "Article": "100021083",
+      "Description": "LUMIERE NATURAL BRILLANTE 30X60CM 1.8M2"
+    },
+    {
+      "Article": "100021084",
+      "Description": "FEROE GRIS MT 25X50CM 1.625M2"
+    },
+    {
+      "Article": "100021085",
+      "Description": "P.E. REGINA NAT. MT RECT. 60X60CM 1.44M2"
+    },
+    {
+      "Article": "100021089",
+      "Description": "INOUT CRASSAN GRAFI RECT 60X120CM 1.44M2"
+    },
+    {
+      "Article": "100021090",
+      "Description": "P.E. DOUMO BL SAT. RECT. 60X120CM 1.44M2"
+    },
+    {
+      "Article": "100021091",
+      "Description": "P.E. NUANCES IVORY RECT. 60X120CM 1.44M2"
+    },
+    {
+      "Article": "100021093",
+      "Description": "ANTID.NUANCES PERLA RECT 60X120CM 1.44M2"
+    },
+    {
+      "Article": "100021094",
+      "Description": "P.E. NUANCES PERLA RECT. 60X120CM 1.42M2"
+    },
+    {
+      "Article": "100021095",
+      "Description": "ANTID.NUANCES NAT. RECT. 60X120CM 1.44M2"
+    },
+    {
+      "Article": "100021096",
+      "Description": "P.E. NUANCES NAT. RECT. 60X120CM 1.44M2"
+    },
+    {
+      "Article": "100021097",
+      "Description": "P.E. GLAMSTONE BG RECT 120X120CM 1.42M2"
+    },
+    {
+      "Article": "100021098",
+      "Description": "P.E. GLAMSTONE BL RECT 120X120CM 1.42M2"
+    },
+    {
+      "Article": "100021099",
+      "Description": "P.E. GLAMSTON GRIS RECT 120X120CM 1.42M2"
+    },
+    {
+      "Article": "100021100",
+      "Description": "P.E. THUILE BL SAT RECT 120X120CM 1.42M2"
+    },
+    {
+      "Article": "100021102",
+      "Description": "LUMIERE LB BLAN MT RECT. 33.3X90CM 1.2M2"
+    },
+    {
+      "Article": "100021103",
+      "Description": "LUMIERE LB NAT. MT RECT. 33.3X90CM 1.2M2"
+    },
+    {
+      "Article": "100021104",
+      "Description": "LUMIERE NATURAL MT RECT. 33.3X90CM 1.2M2"
+    },
+    {
+      "Article": "100021252",
+      "Description": "PORCELANAT 60X60CM GRIS DOBLE CARGA 1.44"
+    },
+    {
+      "Article": "100021253",
+      "Description": "PORCELANATO 60X120CM BEIGE 2.16"
+    },
+    {
+      "Article": "100021254",
+      "Description": "PORCELANATO 60X60CM MARMOL GRIS 1.44"
+    },
+    {
+      "Article": "100021255",
+      "Description": "PORCELANATO 60X60CM MARMOL AZUL 1.44"
+    },
+    {
+      "Article": "100021446",
+      "Description": "MELAMINA STONE GREY RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100021447",
+      "Description": "MELAMINA ANTHRACITE. RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100021450",
+      "Description": "MELAMINA NOBLE ELM RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100021451",
+      "Description": "MELAMINA ALBY BLUE RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100021453",
+      "Description": "MELAMINA LIGHT ROCK RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100021454",
+      "Description": "MELAMINA GREY NORDIC RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100021455",
+      "Description": "MELAMINA BRONZE EXPR. RH 19MM 280X207 CM"
+    },
+    {
+      "Article": "100021456",
+      "Description": "MELAMINA SILVERJACK RH 280X207 CM"
+    },
+    {
+      "Article": "100021553",
+      "Description": "C. CRUISE GREIGE MT 30X60 1.8M2 10PZ"
+    },
+    {
+      "Article": "100021554",
+      "Description": "C. CRUISE BIANCO MT 30X60 1.62M2"
+    },
+    {
+      "Article": "100021555",
+      "Description": "C. CRUISE BV COLD MT 30X60 1.62M2 9PZ"
+    },
+    {
+      "Article": "100021558",
+      "Description": "FLAX LZ GRIS CLARO MT 30X60CM 1.62M2 9PZ"
+    },
+    {
+      "Article": "100021559",
+      "Description": "FLAX LZ PERLA CLAR MT 30X60CM 1.62M2 9PZ"
+    },
+    {
+      "Article": "100021561",
+      "Description": "FLAX GRIS CLARO MT 30X60CM 1.8M2 10PZ"
+    },
+    {
+      "Article": "100021562",
+      "Description": "FLAX PERLA CLARO MT 30X60CM 1.8M2 10PZ"
+    },
+    {
+      "Article": "100021563",
+      "Description": "RUY MURO OXIDO MT 20.5X61.5CM 1.14M2"
+    },
+    {
+      "Article": "100021564",
+      "Description": "RUY MURO PIEDRA MT 20.5X61.5CM 1.14M2"
+    },
+    {
+      "Article": "100021567",
+      "Description": "ANTID.FEROE GREIG MT RECT 60X60CM 1.41M2"
+    },
+    {
+      "Article": "100021568",
+      "Description": "ANTID.FEROE GRISO MT RECT 60X60CM 1.41M2"
+    },
+    {
+      "Article": "100021569",
+      "Description": "ANTID. FEROE GRIS MT RECT 60X60CM 1.41M2"
+    },
+    {
+      "Article": "100021570",
+      "Description": "BALDAI ROBLE MT RECT. 23X120CM 1.0851M2"
+    },
+    {
+      "Article": "100021572",
+      "Description": "FEROE GREIGE MT RECT 100X100CM 1.98M2"
+    },
+    {
+      "Article": "100021573",
+      "Description": "FEROE DARK GREY MT RECT 100X100CM 1.98M2"
+    },
+    {
+      "Article": "100021574",
+      "Description": "FEROE GREY MT RECT 100X100CM 1.98M2 2PZ"
+    },
+    {
+      "Article": "100021576",
+      "Description": "P.E. KYNDAL HAYA MT REC 30X150CM 1.34M2"
+    },
+    {
+      "Article": "100021582",
+      "Description": "PANEL DE PARED EXTERIOR WPC TECA"
+    },
+    {
+      "Article": "100021583",
+      "Description": "PANEL DE PARED EXTERIOR WPC MARRON"
+    },
+    {
+      "Article": "100021587",
+      "Description": "PANEL SPC GRIS PIEDRA 122X244 CM 3MM"
+    },
+    {
+      "Article": "100021588",
+      "Description": "PANEL SPC GRIS PIEDRA CLA 122X244 CM 3MM"
+    },
+    {
+      "Article": "100021589",
+      "Description": "PANEL SPC BEIGE PIEDRA 122X244 CM 3MM"
+    },
+    {
+      "Article": "100021891",
+      "Description": "PANEL ACUSTICO MDF NOGAL"
+    },
+    {
+      "Article": "100021892",
+      "Description": "PANEL ACUSTICO MDF MARRON"
+    },
+    {
+      "Article": "100021893",
+      "Description": "PANEL ACUSTICO MDF CENIZA"
+    },
+    {
+      "Article": "100021945",
+      "Description": "MARCO PINO SENCILLO 20MMX70MM (1X3\" )"
+    },
+    {
+      "Article": "100021954",
+      "Description": "BANERA HIDROMASAJE TRIANGULAR 8 JETS"
+    },
+    {
+      "Article": "100022640",
+      "Description": "PANEL SPC BLANCO-BIEGE 122X244 CM 3MM"
+    },
+    {
+      "Article": "100022756",
+      "Description": "PARED PIETRA SANTA MULT 30X60 CM 1.62 M2"
+    }
+  ],
+  "Cofersa": []
+}

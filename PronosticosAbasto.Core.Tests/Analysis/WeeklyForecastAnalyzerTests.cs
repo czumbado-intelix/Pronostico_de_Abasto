@@ -131,6 +131,44 @@ public class WeeklyForecastAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_uses_available_forecast_weeks_even_when_some_weeks_have_zero_demand()
+    {
+        var analyzer = new WeeklyForecastAnalyzer();
+        var inventory = new[]
+        {
+            new InventoryPosition("A123", "ZA15-PRINCIPAL", 15),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("A123", SelectedWeek, 10),
+            new ForecastEntry("A123", SelectedWeek.AddDays(21), 10),
+            new ForecastEntry("A123", SelectedWeek.AddDays(28), 100),
+        };
+        var availableWeeks = new[]
+        {
+            SelectedWeek,
+            SelectedWeek.AddDays(7),
+            SelectedWeek.AddDays(14),
+            SelectedWeek.AddDays(21),
+            SelectedWeek.AddDays(28),
+        };
+
+        var result = analyzer.Analyze(
+            inventory,
+            forecast,
+            SelectedWeek,
+            AnalysisHorizon.Weeks(4),
+            satelliteZones: new[] { "ZA31-SAT" },
+            availableWeeks: availableWeeks);
+
+        var article = Assert.Single(result.Articles);
+        Assert.Equal(4, result.AnalyzedWeeks);
+        Assert.Equal(SelectedWeek.AddDays(21), result.HorizonEndWeek);
+        Assert.Equal(20, article.ForecastQuantity);
+        Assert.Equal(3, article.CoverageWeeks);
+    }
+
+    [Fact]
     public void Analyze_uses_available_weeks_only_and_marks_incomplete_horizon()
     {
         var analyzer = new WeeklyForecastAnalyzer();
@@ -251,14 +289,57 @@ public class WeeklyForecastAnalyzerTests
     }
 
     [Fact]
-    public void Analyze_adds_prior_pending_transit_and_suggests_oldest_pallets_first()
+    public void Analyze_subtracts_pending_transit_before_suggesting_new_pallets()
     {
         var analyzer = new WeeklyForecastAnalyzer();
         var inventory = new[]
         {
             new InventoryPosition("M001", "ZP", 0),
             new InventoryPosition("M001", "ZA47", 100, "Manguera", "PAL-NEW", new DateOnly(2026, 5, 10), "Disponible"),
-            new InventoryPosition("M001", "ZA47", 50, "Manguera", "PAL-OLD", new DateOnly(2026, 4, 10), "Disponible"),
+            new InventoryPosition("M001", "ZA47", 60, "Manguera", "PAL-OLD", new DateOnly(2026, 4, 10), "Disponible"),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("M001", SelectedWeek, 100),
+        };
+        var pendingTransit = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["M001"] = 40,
+        };
+
+        var result = analyzer.Analyze(
+            inventory,
+            forecast,
+            SelectedWeek,
+            AnalysisHorizon.Weeks(4),
+            CoverageThresholds.Default,
+            new[] { "ZA47" },
+            pendingTransit);
+
+        var article = Assert.Single(result.Articles);
+        Assert.Equal(40, article.PendingTransitQuantity);
+        Assert.Equal(60, article.CalculatedTransferNeedQuantity);
+        Assert.Equal(60, article.TransferSuggestionQuantity);
+        Assert.Equal(60, article.NewTransferSuggestionQuantity);
+        Assert.Equal(0, article.PalletRoundUpSurplusQuantity);
+        Assert.Equal(0, article.RemainingShortageAfterTransfer);
+        Assert.Collection(
+            article.SuggestedPallets,
+            pallet =>
+            {
+                Assert.Equal("PAL-OLD", pallet.Pallet);
+                Assert.Equal(60, pallet.Quantity);
+            });
+    }
+
+    [Fact]
+    public void Analyze_does_not_suggest_transfer_when_transit_covers_the_shortage()
+    {
+        var analyzer = new WeeklyForecastAnalyzer();
+        var inventory = new[]
+        {
+            new InventoryPosition("M001", "ZP", 0),
+            new InventoryPosition("M001", "ZA47", 100, "Manguera", "PAL-1", new DateOnly(2026, 4, 10), "Disponible"),
         };
         var forecast = new[]
         {
@@ -280,23 +361,45 @@ public class WeeklyForecastAnalyzerTests
 
         var article = Assert.Single(result.Articles);
         Assert.Equal(40, article.PendingTransitQuantity);
-        Assert.Equal(70, article.CalculatedTransferNeedQuantity);
-        Assert.Equal(150, article.TransferSuggestionQuantity);
-        Assert.Equal(110, article.NewTransferSuggestionQuantity);
-        Assert.Equal(80, article.PalletRoundUpSurplusQuantity);
-        Assert.Equal(0, article.RemainingShortageAfterTransfer);
-        Assert.Collection(
-            article.SuggestedPallets,
-            pallet =>
-            {
-                Assert.Equal("PAL-OLD", pallet.Pallet);
-                Assert.Equal(50, pallet.Quantity);
-            },
-            pallet =>
-            {
-                Assert.Equal("PAL-NEW", pallet.Pallet);
-                Assert.Equal(100, pallet.Quantity);
-            });
+        Assert.Equal(0, article.CalculatedTransferNeedQuantity);
+        Assert.Equal(0, article.TransferSuggestionQuantity);
+        Assert.Empty(article.SuggestedPallets);
+    }
+
+    [Fact]
+    public void Analyze_excludes_unavailable_transit_pallets_from_satellite_suggestions()
+    {
+        var analyzer = new WeeklyForecastAnalyzer();
+        var inventory = new[]
+        {
+            new InventoryPosition("M002", "ZP", 0),
+            new InventoryPosition("M002", "ZA47", 40, "Manguera", "PAL-TRANSIT", new DateOnly(2026, 4, 10), "Disponible"),
+            new InventoryPosition("M002", "ZA47", 60, "Manguera", "PAL-OK", new DateOnly(2026, 5, 10), "Disponible"),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("M002", SelectedWeek, 40),
+        };
+        var unavailablePalletKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            PalletIdentity.BuildArticlePallet("M002", "PAL-TRANSIT"),
+        };
+
+        var result = analyzer.Analyze(
+            inventory,
+            forecast,
+            SelectedWeek,
+            AnalysisHorizon.Weeks(4),
+            CoverageThresholds.Default,
+            new[] { "ZA47" },
+            pendingTransitQuantities: null,
+            ignoredStorageZones: null,
+            unavailablePalletKeys);
+
+        var article = Assert.Single(result.Articles);
+        Assert.Equal(60, article.SatelliteInventoryQuantity);
+        Assert.Equal("PAL-OK", Assert.Single(article.SuggestedPallets).Pallet);
+        Assert.DoesNotContain(article.AvailablePallets, pallet => pallet.Pallet == "PAL-TRANSIT");
     }
 
     [Fact]

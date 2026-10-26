@@ -29,6 +29,10 @@ public static class LocalJsonStorage
             FolderName,
             fileName);
 
+    /// <summary>Ruta de un catalogo inicial incluido junto al ejecutable publicado.</summary>
+    public static string PackagedDefaultsPathFor(string fileName) =>
+        Path.Combine(AppContext.BaseDirectory, "Defaults", fileName);
+
     /// <summary>
     /// Serializa <paramref name="payload"/> y lo deja en <paramref name="filePath"/>
     /// sin exponer nunca un archivo a medio escribir.

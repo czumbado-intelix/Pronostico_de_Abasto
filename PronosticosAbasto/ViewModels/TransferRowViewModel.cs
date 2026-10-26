@@ -38,6 +38,7 @@ public partial class TransferRowViewModel : ObservableObject, IClipboardRow
         ArticleDescriptionText = ArticleDisplayFormatter.FormatWithDescription(Article, Description);
         Status = article.Status;
         StatusLabel = ToStatusLabel(article.Status);
+        ForecastQuantity = article.ForecastQuantity;
         CalculatedTransferNeedQuantity = article.CalculatedTransferNeedQuantity;
         PendingTransitQuantity = article.PendingTransitQuantity;
         SatelliteAvailableQuantity = article.SatelliteInventoryQuantity;
@@ -46,6 +47,7 @@ public partial class TransferRowViewModel : ObservableObject, IClipboardRow
         CoverageText = string.IsNullOrEmpty(coverageText) ? "—" : coverageText;
         ForecastText = article.ForecastQuantity.ToString("N0");
         PrincipalInventoryText = article.PrincipalInventoryQuantity.ToString("N0");
+        DifferenceText = DifferenceQuantity.ToString("N0");
         PendingTransitText = article.PendingTransitQuantity.ToString("N0");
         SatelliteAvailableText = article.SatelliteInventoryQuantity.ToString("N0");
         CalculatedTransferNeedText = article.CalculatedTransferNeedQuantity.ToString("N0");
@@ -90,6 +92,8 @@ public partial class TransferRowViewModel : ObservableObject, IClipboardRow
 
     public string PrincipalInventoryText { get; }
 
+    public string DifferenceText { get; }
+
     public string PendingTransitText { get; }
 
     public string TransferSuggestionText => TransferSuggestionQuantity.ToString("N0");
@@ -126,17 +130,21 @@ public partial class TransferRowViewModel : ObservableObject, IClipboardRow
 
     public string StatusLabel { get; }
 
+    public decimal ForecastQuantity { get; }
+
     public decimal CalculatedTransferNeedQuantity { get; }
 
     public decimal TransferSuggestionQuantity => SelectedPallets.Sum(pallet => pallet.Quantity);
 
     public decimal PendingTransitQuantity { get; }
 
-    public decimal NewTransferSuggestionQuantity => Math.Max(0m, TransferSuggestionQuantity - PendingTransitQuantity);
+    public decimal NewTransferSuggestionQuantity => TransferSuggestionQuantity;
 
     public decimal SatelliteAvailableQuantity { get; }
 
     public decimal PrincipalInventoryQuantity { get; }
+
+    public decimal DifferenceQuantity => PrincipalInventoryQuantity - ForecastQuantity;
 
     public int SuggestedPalletCount => SelectedPallets.Count;
 
@@ -157,7 +165,7 @@ public partial class TransferRowViewModel : ObservableObject, IClipboardRow
     public Brush StatusBrush { get; }
 
     public string DetailsTooltip =>
-        $"Forecast {ForecastText}  ·  Principal {PrincipalInventoryText}  ·  Necesidad {CalculatedTransferNeedText}  ·  A traer {TransferSuggestionText}  ·  Sobrante {PalletRoundUpSurplusText}  ·  Transito pendiente {PendingTransitText}  ·  Palets {SuggestedPalletCountText}  ·  Tam. {TarimaSizeText}  ·  Alistado sat. {SatellitePreparedText}  ·  Pendiente {RemainingShortageText}";
+        $"Forecast {ForecastText}  ·  Principal {PrincipalInventoryText}  ·  DIF {DifferenceText}  ·  Necesidad {CalculatedTransferNeedText}  ·  A traer {TransferSuggestionText}  ·  Sobrante {PalletRoundUpSurplusText}  ·  Transito pendiente {PendingTransitText}  ·  Palets {SuggestedPalletCountText}  ·  Tam. {TarimaSizeText}  ·  Alistado sat. {SatellitePreparedText}  ·  Pendiente {RemainingShortageText}";
 
     [ObservableProperty]
     public partial bool IsOrdered { get; set; }
@@ -184,6 +192,26 @@ public partial class TransferRowViewModel : ObservableObject, IClipboardRow
         SatellitePreparedText,
         SatelliteZonesText.Replace(Environment.NewLine, "; "),
         RemainingShortageText);
+
+    public void SelectAllPallets()
+    {
+        _updatingPalletSelection = true;
+        try
+        {
+            foreach (var option in PalletOptions.Where(option => option.Quantity > 0m))
+            {
+                option.IsSelected = true;
+            }
+        }
+        finally
+        {
+            _updatingPalletSelection = false;
+        }
+
+        SyncTransferQuantityInput();
+        NotifyTransferQuantitiesChanged();
+        _onQuantityChanged?.Invoke(this);
+    }
 
     private ObservableCollection<PalletSelectionViewModel> BuildPalletOptions(ArticleAnalysisResult article)
     {

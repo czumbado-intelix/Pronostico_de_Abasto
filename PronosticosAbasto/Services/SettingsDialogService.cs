@@ -44,11 +44,11 @@ public sealed class SettingsDialogService
             currentPreparedArticles,
             currentTarimaSizes);
 
-        var titleIcon = new FontIcon
+        var titleIcon = new SymbolIcon
         {
-            FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["GuardianIconFontFamily"],
-            Glyph = "",
-            FontSize = 22,
+            Symbol = Symbol.Setting,
+            Width = 22,
+            Height = 22,
             Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["GuardianPrimaryBrush"],
         };
         var titleText = new TextBlock

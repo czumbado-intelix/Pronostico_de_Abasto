@@ -17,12 +17,19 @@ public sealed class ExpedicionesAnalyzer
         IEnumerable<InventoryPosition> inventory,
         IEnumerable<string>? satelliteZones = null,
         IReadOnlyDictionary<string, decimal>? pendingTransitQuantities = null,
-        IEnumerable<string>? ignoredStorageZones = null)
+        IEnumerable<string>? ignoredStorageZones = null,
+        IReadOnlySet<string>? unavailablePalletKeys = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
         ArgumentNullException.ThrowIfNull(inventory);
 
-        var summaries = InventoryZoneClassifier.Summarize(inventory, satelliteZones, ignoredStorageZones);
+        var unavailablePallets = NormalizePalletKeys(unavailablePalletKeys);
+        var availableInventory = unavailablePallets.Count == 0
+            ? inventory
+            : inventory.Where(position => !unavailablePallets.Contains(PalletIdentity.BuildArticlePallet(
+                position.Article,
+                position.Pallet)));
+        var summaries = InventoryZoneClassifier.Summarize(availableInventory, satelliteZones, ignoredStorageZones);
         var pendingTransit = NormalizeQuantities(pendingTransitQuantities);
 
         var results = new List<ExpeditionLineResult>();
@@ -94,5 +101,17 @@ public sealed class ExpedicionesAnalyzer
                 group => group.Key,
                 group => group.Sum(pair => pair.Value),
                 StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlySet<string> NormalizePalletKeys(IReadOnlySet<string>? palletKeys)
+    {
+        if (palletKeys is null || palletKeys.Count == 0)
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return palletKeys
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 }

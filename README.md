@@ -51,6 +51,13 @@ dotnet run --project PronosticosAbasto/PronosticosAbasto.csproj -c Debug
 
 Deja el MSI en `dist/installer/` (carpeta ignorada por git).
 
+## Buscar
+
+Cada módulo tiene un buscador (`Ctrl+F` para ir a él). No importan mayúsculas
+ni tildes; varias palabras se buscan en cualquier orden (`pvc codo`); la coma
+separa alternativas (`codo, tee`). Se puede pegar una lista de artículos desde
+Excel o un correo: la insignia de la caja dice cuántos aparecieron y cuáles no.
+
 ## Datos locales
 
 La configuración y el estado operativo (marcas de "mandado a traer", tránsito,

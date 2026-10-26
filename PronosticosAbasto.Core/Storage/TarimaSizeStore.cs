@@ -14,20 +14,30 @@ public sealed class TarimaSizeStore
 
     private readonly IReadOnlyList<string> _companies;
     private readonly string _filePath;
+    private readonly string? _packagedDefaultPath;
     private Dictionary<string, List<TarimaSizeEntry>> _items;
 
     public TarimaSizeStore(IEnumerable<string> companies)
-        : this(companies, DefaultFilePath())
+        : this(
+            companies,
+            DefaultFilePath(),
+            LocalJsonStorage.PackagedDefaultsPathFor("tarima-sizes.json"))
     {
     }
 
     public TarimaSizeStore(IEnumerable<string> companies, string filePath)
+        : this(companies, filePath, packagedDefaultPath: null)
+    {
+    }
+
+    public TarimaSizeStore(IEnumerable<string> companies, string filePath, string? packagedDefaultPath)
     {
         ArgumentNullException.ThrowIfNull(companies);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
         _companies = companies.ToArray();
         _filePath = filePath;
+        _packagedDefaultPath = packagedDefaultPath;
         _items = Load();
     }
 
@@ -58,27 +68,50 @@ public sealed class TarimaSizeStore
 
     private Dictionary<string, List<TarimaSizeEntry>> Load()
     {
-        try
+        var local = TryLoadFile(_filePath)
+            ?? new Dictionary<string, List<TarimaSizeEntry>>(StringComparer.OrdinalIgnoreCase);
+        var defaults = !string.IsNullOrWhiteSpace(_packagedDefaultPath)
+            ? TryLoadFile(_packagedDefaultPath)
+            : null;
+
+        if (defaults is not null)
         {
-            if (File.Exists(_filePath))
+            foreach (var company in _companies)
             {
-                var json = File.ReadAllText(_filePath);
-                var stored = JsonSerializer.Deserialize<Dictionary<string, List<TarimaSizeEntry>>>(json, SerializerOptions);
-                if (stored is not null)
+                if ((!local.TryGetValue(company, out var items) || items.Count == 0) &&
+                    defaults.TryGetValue(company, out var defaultItems) &&
+                    defaultItems.Count > 0)
                 {
-                    return SeedMissingCompanies(stored.ToDictionary(
-                        entry => entry.Key,
-                        entry => Normalize(entry.Value),
-                        StringComparer.OrdinalIgnoreCase));
+                    local[company] = defaultItems;
                 }
             }
+        }
+
+        return SeedMissingCompanies(local);
+    }
+
+    private static Dictionary<string, List<TarimaSizeEntry>>? TryLoadFile(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+
+            var json = File.ReadAllText(filePath);
+            var stored = JsonSerializer.Deserialize<Dictionary<string, List<TarimaSizeEntry>>>(json, SerializerOptions);
+            return stored?.ToDictionary(
+                entry => entry.Key,
+                entry => Normalize(entry.Value),
+                StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
         {
             // Keep defaults if the local catalog cannot be read.
         }
 
-        return SeedMissingCompanies(new Dictionary<string, List<TarimaSizeEntry>>(StringComparer.OrdinalIgnoreCase));
+        return null;
     }
 
     private Dictionary<string, List<TarimaSizeEntry>> SeedMissingCompanies(

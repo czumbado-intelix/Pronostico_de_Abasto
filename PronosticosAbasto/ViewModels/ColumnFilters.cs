@@ -10,10 +10,15 @@ namespace PronosticosAbasto.ViewModels;
 public partial class TextColumnFilter : ObservableObject, IColumnValueFilter
 {
     private readonly Action _changed;
+    private readonly Func<string?, IReadOnlyList<string>>? _valueTokenizer;
     private bool _isRefreshingOptions;
     private HashSet<string>? _appliedSelectedKeys;
 
-    public TextColumnFilter(Action changed) => _changed = changed;
+    public TextColumnFilter(Action changed, Func<string?, IReadOnlyList<string>>? valueTokenizer = null)
+    {
+        _changed = changed;
+        _valueTokenizer = valueTokenizer;
+    }
 
     public ObservableCollection<ColumnFilterValueOption> Options { get; } = new();
 
@@ -27,11 +32,11 @@ public partial class TextColumnFilter : ObservableObject, IColumnValueFilter
     {
         get
         {
-            var search = OptionSearchText?.Trim();
-            return string.IsNullOrEmpty(search)
+            var search = ColumnFilterTextMatcher.NormalizeForSearch(OptionSearchText);
+            return search.Length == 0
                 ? Options.ToArray()
                 : Options
-                    .Where(option => option.DisplayValue.Contains(search, StringComparison.OrdinalIgnoreCase))
+                    .Where(option => ColumnFilterTextMatcher.ContainsNormalized(option.DisplayValue, search))
                     .ToArray();
         }
     }
@@ -106,8 +111,11 @@ public partial class TextColumnFilter : ObservableObject, IColumnValueFilter
                 option => option.IsSelected,
                 StringComparer.OrdinalIgnoreCase);
 
-        var uniqueValues = values
-            .Select(NormalizeDisplayValue)
+        var candidateValues = _valueTokenizer is null
+            ? values.Select(NormalizeDisplayValue)
+            : values.SelectMany(ExtractDisplayTokens);
+
+        var uniqueValues = candidateValues
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -135,6 +143,13 @@ public partial class TextColumnFilter : ObservableObject, IColumnValueFilter
 
     public bool Matches(string? value)
     {
+        // Sin texto ni seleccion aplicada acepta todo: no hace falta formatear
+        // ni normalizar la celda (contrato de IColumnValueFilter.IsActive).
+        if (!IsActive)
+        {
+            return true;
+        }
+
         var displayValue = NormalizeDisplayValue(value);
         if (!MatchesText(displayValue, Text))
         {
@@ -146,7 +161,51 @@ public partial class TextColumnFilter : ObservableObject, IColumnValueFilter
             return true;
         }
 
-        return _appliedSelectedKeys.Contains(NormalizeForComparison(displayValue));
+        if (_valueTokenizer is null)
+        {
+            return _appliedSelectedKeys.Contains(NormalizeForComparison(displayValue));
+        }
+
+        return ExtractDisplayTokens(value)
+            .Any(token => _appliedSelectedKeys.Contains(NormalizeForComparison(token)));
+    }
+
+    private IEnumerable<string> ExtractDisplayTokens(string? value)
+    {
+        if (_valueTokenizer is null)
+        {
+            return [NormalizeDisplayValue(value)];
+        }
+
+        var tokens = _valueTokenizer(value);
+        return tokens.Count > 0
+            ? tokens.Select(NormalizeDisplayValue)
+            : [NormalizeDisplayValue(value)];
+    }
+
+    public bool TryApplyExactSearch()
+    {
+        var exactOption = FindExactSearchOption();
+        if (exactOption is null)
+        {
+            return false;
+        }
+
+        _isRefreshingOptions = true;
+        try
+        {
+            foreach (var option in Options)
+            {
+                option.IsSelected = ReferenceEquals(option, exactOption);
+            }
+        }
+        finally
+        {
+            _isRefreshingOptions = false;
+        }
+
+        Apply();
+        return true;
     }
 
     [RelayCommand]
@@ -300,10 +359,17 @@ public partial class TextColumnFilter : ObservableObject, IColumnValueFilter
     }
 
     private static bool MatchesText(string value, string? filterText)
+        => ColumnFilterTextMatcher.ContainsNormalized(value, filterText);
+
+    private ColumnFilterValueOption? FindExactSearchOption()
     {
-        var text = filterText?.Trim();
-        return string.IsNullOrWhiteSpace(text)
-            || value.Contains(text, StringComparison.OrdinalIgnoreCase);
+        if (ColumnFilterTextMatcher.NormalizeForSearch(OptionSearchText).Length == 0)
+        {
+            return null;
+        }
+
+        return FilteredOptions.FirstOrDefault(option =>
+            ColumnFilterTextMatcher.EqualsNormalized(option.DisplayValue, OptionSearchText));
     }
 
     private static string NormalizeDisplayValue(string? value)

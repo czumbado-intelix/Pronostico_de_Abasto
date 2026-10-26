@@ -69,6 +69,19 @@ public sealed class WarehouseComparisonCommentStore
         Persist();
     }
 
+    public void ClearCommentsFor(string company)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(company);
+
+        if (!_comments.TryGetValue(company, out var comments) || comments.Count == 0)
+        {
+            return;
+        }
+
+        comments.Clear();
+        Persist();
+    }
+
     private Dictionary<string, Dictionary<string, string>> Load()
     {
         try

@@ -94,8 +94,8 @@ public sealed class ExpedicionesAnalysisResult
         Evaluated = lines.Count(line => line.DemandQuantity > 0 || line.PendingTransitQuantity > 0);
         Covered = lines.Count(line =>
             line.DemandQuantity > 0 &&
-            line.PendingTransitQuantity <= 0 &&
-            line.PrincipalInventoryQuantity >= line.DemandQuantity);
+            line.CalculatedTransferNeedQuantity <= 0 &&
+            line.RemainingShortageAfterTransfer <= 0);
         ToTransfer = lines.Count(line => line.TransferSuggestionQuantity > 0);
         WithoutExternal = lines.Count(line =>
             line.RemainingShortageAfterTransfer > 0 &&

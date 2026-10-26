@@ -7,6 +7,12 @@ public static class PalletIdentity
     public static string Build(string article, PalletInventoryDetail pallet) =>
         Build(article, pallet.Pallet, pallet.StorageZone, pallet.Location);
 
+    public static string BuildArticlePallet(string article, string pallet) =>
+        string.Join("|", Normalize(article), Normalize(pallet));
+
+    public static string BuildArticlePallet(string article, PalletInventoryDetail pallet) =>
+        BuildArticlePallet(article, pallet.Pallet);
+
     public static string Build(string article, string pallet, string storageZone, string location) =>
         string.Join(
             "|",

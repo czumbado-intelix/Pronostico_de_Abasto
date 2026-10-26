@@ -82,7 +82,7 @@
                     <Border Height="1" Background="{ThemeResource GuardianBorderSoftBrush}" />
 
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE88E;" FontSize="16" Foreground="{ThemeResource GuardianTextMutedBrush}" />
+                        <SymbolIcon Symbol="Important" Width="16" Height="16" Foreground="{ThemeResource GuardianTextMutedBrush}" />
                         <TextBlock Text="{x:Bind ViewModel.HealthyNoteText, Mode=OneWay}" VerticalAlignment="Center" Foreground="{ThemeResource GuardianTextSecondaryBrush}" Style="{StaticResource GuardianBodyTextStyle}" />
                     </StackPanel>
                 </StackPanel>
@@ -102,7 +102,7 @@
                 </StackPanel>
                 <Button Grid.Column="1" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource GuardianTextPrimaryBrush}" Command="{x:Bind ViewModel.AddZoneCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE145;" FontSize="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        <SymbolIcon Symbol="Add" Width="16" Height="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
                         <TextBlock Text="Agregar Zona" Foreground="{ThemeResource GuardianTextPrimaryBrush}" />
                     </StackPanel>
                 </Button>
@@ -139,10 +139,10 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <FontIcon Grid.Column="0" FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xEBB8;" FontSize="18" Foreground="{ThemeResource GuardianTextMutedBrush}" VerticalAlignment="Center" />
+                                    <SymbolIcon Grid.Column="0" Symbol="MapPin" Width="18" Height="18" Foreground="{ThemeResource GuardianTextMutedBrush}" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1" Text="{x:Bind}" VerticalAlignment="Center" Style="{StaticResource GuardianMonoTextStyle}" />
                                     <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="6" Click="RemoveZone_Click" ToolTipService.ToolTip="Eliminar zona">
-                                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE92E;" FontSize="18" Foreground="{ThemeResource GuardianDangerBrush}" />
+                                        <SymbolIcon Symbol="Delete" Width="18" Height="18" Foreground="{ThemeResource GuardianDangerBrush}" />
                                     </Button>
                                 </Grid>
                             </DataTemplate>
@@ -158,7 +158,7 @@
                         <TextBox Grid.Column="0" PlaceholderText="EJ. ZA10" Style="{StaticResource GuardianTextBoxStyle}"
                                  Text="{x:Bind ViewModel.NewZoneText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="6" Command="{x:Bind ViewModel.AddZoneCommand}" ToolTipService.ToolTip="Agregar zona">
-                            <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE990;" FontSize="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                            <SymbolIcon Symbol="Add" Width="22" Height="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
                         </Button>
                     </Grid>
                 </StackPanel>
@@ -178,7 +178,7 @@
                 </StackPanel>
                 <Button Grid.Column="1" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource GuardianTextPrimaryBrush}" Command="{x:Bind ViewModel.AddIgnoredZoneCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE145;" FontSize="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        <SymbolIcon Symbol="Add" Width="16" Height="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
                         <TextBlock Text="Agregar Zona" Foreground="{ThemeResource GuardianTextPrimaryBrush}" />
                     </StackPanel>
                 </Button>
@@ -192,7 +192,7 @@
                 <TextBox PlaceholderText="Ej. ZA23 o ZA23-ZONA ALMACENAJE..." Style="{StaticResource GuardianTextBoxStyle}"
                          Text="{x:Bind ViewModel.NewIgnoredZoneText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="6" Command="{x:Bind ViewModel.AddIgnoredZoneCommand}" ToolTipService.ToolTip="Agregar zona excluida">
-                    <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE990;" FontSize="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                    <SymbolIcon Symbol="Add" Width="22" Height="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
                 </Button>
             </Grid>
 
@@ -228,10 +228,10 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <FontIcon Grid.Column="0" FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE711;" FontSize="18" Foreground="{ThemeResource GuardianTextMutedBrush}" VerticalAlignment="Center" />
+                                    <SymbolIcon Grid.Column="0" Symbol="Cancel" Width="18" Height="18" Foreground="{ThemeResource GuardianTextMutedBrush}" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1" Text="{x:Bind}" VerticalAlignment="Center" Style="{StaticResource GuardianMonoTextStyle}" />
                                     <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="6" Click="RemoveIgnoredZone_Click" ToolTipService.ToolTip="Eliminar zona excluida">
-                                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE92E;" FontSize="18" Foreground="{ThemeResource GuardianDangerBrush}" />
+                                        <SymbolIcon Symbol="Delete" Width="18" Height="18" Foreground="{ThemeResource GuardianDangerBrush}" />
                                     </Button>
                                 </Grid>
                             </DataTemplate>
@@ -254,7 +254,7 @@
                 </StackPanel>
                 <Button Grid.Column="1" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource GuardianTextPrimaryBrush}" Command="{x:Bind ViewModel.AddPreparedArticleCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE145;" FontSize="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        <SymbolIcon Symbol="Add" Width="16" Height="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
                         <TextBlock Text="Agregar Articulo" Foreground="{ThemeResource GuardianTextPrimaryBrush}" />
                     </StackPanel>
                 </Button>
@@ -307,7 +307,7 @@
                                     <TextBox Grid.Column="0" Text="{Binding Article, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource GuardianTextBoxStyle}" />
                                     <TextBox Grid.Column="1" Text="{Binding Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource GuardianTextBoxStyle}" />
                                     <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="6" Click="RemovePreparedArticle_Click" ToolTipService.ToolTip="Eliminar articulo">
-                                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE92E;" FontSize="18" Foreground="{ThemeResource GuardianDangerBrush}" />
+                                        <SymbolIcon Symbol="Delete" Width="18" Height="18" Foreground="{ThemeResource GuardianDangerBrush}" />
                                     </Button>
                                 </Grid>
                             </DataTemplate>
@@ -325,7 +325,7 @@
                         <TextBox Grid.Column="1" PlaceholderText="Descripcion" Style="{StaticResource GuardianTextBoxStyle}"
                                  Text="{x:Bind ViewModel.NewPreparedDescriptionText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="6" Command="{x:Bind ViewModel.AddPreparedArticleCommand}" ToolTipService.ToolTip="Agregar articulo">
-                            <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE990;" FontSize="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                            <SymbolIcon Symbol="Add" Width="22" Height="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
                         </Button>
                     </Grid>
                 </StackPanel>
@@ -345,7 +345,7 @@
                 </StackPanel>
                 <Button Grid.Column="1" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource GuardianTextPrimaryBrush}" Command="{x:Bind ViewModel.AddTarimaSizeCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE145;" FontSize="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                        <SymbolIcon Symbol="Add" Width="16" Height="16" Foreground="{ThemeResource GuardianPrimaryBrush}" />
                         <TextBlock Text="Agregar Tamano" Foreground="{ThemeResource GuardianTextPrimaryBrush}" />
                     </StackPanel>
                 </Button>
@@ -411,7 +411,7 @@
                                         <ComboBoxItem Content="T" />
                                     </ComboBox>
                                     <Button Grid.Column="3" Background="Transparent" BorderThickness="0" Padding="6" Click="RemoveTarimaSize_Click" ToolTipService.ToolTip="Eliminar tamano">
-                                        <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE92E;" FontSize="18" Foreground="{ThemeResource GuardianDangerBrush}" />
+                                        <SymbolIcon Symbol="Delete" Width="18" Height="18" Foreground="{ThemeResource GuardianDangerBrush}" />
                                     </Button>
                                 </Grid>
                             </DataTemplate>
@@ -440,7 +440,7 @@
                             <ComboBoxItem Content="T" />
                         </ComboBox>
                         <Button Grid.Column="3" Background="Transparent" BorderThickness="0" Padding="6" Command="{x:Bind ViewModel.AddTarimaSizeCommand}" ToolTipService.ToolTip="Agregar tamano">
-                            <FontIcon FontFamily="{StaticResource GuardianIconFontFamily}" Glyph="&#xE990;" FontSize="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
+                            <SymbolIcon Symbol="Add" Width="22" Height="22" Foreground="{ThemeResource GuardianPrimaryBrush}" />
                         </Button>
                     </Grid>
                 </StackPanel>

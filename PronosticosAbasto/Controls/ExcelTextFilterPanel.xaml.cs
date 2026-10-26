@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using PronosticosAbasto.ViewModels;
 using System.Windows.Input;
+using Windows.System;
 
 namespace PronosticosAbasto.Controls;
 
@@ -54,6 +55,7 @@ public sealed partial class ExcelTextFilterPanel : UserControl
     public ExcelTextFilterPanel()
     {
         InitializeComponent();
+        Loaded += ExcelTextFilterPanel_Loaded;
     }
 
     public TextColumnFilter? Filter
@@ -104,8 +106,43 @@ public sealed partial class ExcelTextFilterPanel : UserControl
         }
     }
 
+    private void ExcelTextFilterPanel_Loaded(object sender, RoutedEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            SearchTextBox.Focus(FocusState.Programmatic);
+            SearchTextBox.SelectAll();
+        });
+    }
+
+    private void SearchTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (Filter is not null)
+        {
+            Filter.OptionSearchText = SearchTextBox.Text;
+        }
+
+        if (Filter?.TryApplyExactSearch() == true)
+        {
+            HideContainingFlyout();
+        }
+    }
+
     private void AcceptButton_Click(object sender, RoutedEventArgs e)
     {
+        if (Filter?.TryApplyExactSearch() == true)
+        {
+            HideContainingFlyout();
+            return;
+        }
+
         if (Filter?.ApplyCommand.CanExecute(null) == true)
         {
             Filter.ApplyCommand.Execute(null);

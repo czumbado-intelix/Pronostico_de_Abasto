@@ -11,6 +11,11 @@ namespace PronosticosAbasto.Core.Tables;
 public interface IColumnValueFilter
 {
     /// <summary>Si el filtro esta restringiendo algo ahora mismo.</summary>
+    /// <remarks>
+    /// Contrato: mientras sea false, <see cref="Matches"/> debe aceptar cualquier
+    /// valor. <see cref="TableView{TRow}"/> se apoya en eso para no consultar las
+    /// columnas sin filtro.
+    /// </remarks>
     bool IsActive { get; }
 
     /// <summary>Decide si un valor de celda pasa el filtro.</summary>

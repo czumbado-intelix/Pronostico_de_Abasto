@@ -32,7 +32,7 @@ public sealed record TransferFunnel(
 
             evaluated++;
 
-            if (article.Difference >= 0 && article.PendingTransitQuantity <= 0)
+            if (article.CalculatedTransferNeedQuantity <= 0m && article.RemainingShortageAfterTransfer <= 0m)
             {
                 covered++;
                 continue;

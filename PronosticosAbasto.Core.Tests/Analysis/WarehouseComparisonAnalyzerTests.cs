@@ -1,5 +1,6 @@
 using PronosticosAbasto.Core.Analysis;
 using PronosticosAbasto.Core.Configuration;
+using PronosticosAbasto.Core.IO;
 
 namespace PronosticosAbasto.Core.Tests.Analysis;
 
@@ -44,6 +45,167 @@ public class WarehouseComparisonAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_does_not_comment_when_article_requests_from_start()
+    {
+        var analyzer = new WarehouseComparisonAnalyzer();
+        var periods = Enumerable.Range(0, 6).Select(offset => StartWeek.AddDays(offset * 7)).ToArray();
+        var inventory = new[]
+        {
+            new InventoryPosition("100022301", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 20),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("100022301", StartWeek, 5),
+            new ForecastEntry("100022301", StartWeek.AddDays(14), 5),
+            new ForecastEntry("100022301", StartWeek.AddDays(21), 5),
+        };
+
+        var result = analyzer.Analyze(inventory, forecast, periods, StartWeek);
+
+        var row = Assert.Single(result.Rows);
+        Assert.True(row.HasFutureForecast);
+        Assert.Equal(string.Empty, row.AutomaticComment);
+    }
+
+    [Fact]
+    public void Analyze_does_not_comment_requested_period_before_four_week_minimum()
+    {
+        var analyzer = new WarehouseComparisonAnalyzer();
+        var periods = Enumerable.Range(0, 6).Select(offset => StartWeek.AddDays(offset * 7)).ToArray();
+        var inventory = new[]
+        {
+            new InventoryPosition("100022301", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 20),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("100022301", StartWeek.AddDays(14), 5),
+        };
+
+        var result = analyzer.Analyze(inventory, forecast, periods, StartWeek);
+
+        var row = Assert.Single(result.Rows);
+        Assert.True(row.HasFutureForecast);
+        Assert.Equal(string.Empty, row.AutomaticComment);
+    }
+
+    [Fact]
+    public void Analyze_comments_first_requested_period_after_initial_gap()
+    {
+        var analyzer = new WarehouseComparisonAnalyzer();
+        var start = new DateOnly(2026, 10, 5);
+        var periods = Enumerable.Range(0, 13).Select(offset => start.AddDays(offset * 7)).ToArray();
+        var inventory = new[]
+        {
+            new InventoryPosition("100022301", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 113),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("100022301", new DateOnly(2026, 12, 21), 1),
+            new ForecastEntry("100022301", new DateOnly(2026, 12, 28), 1),
+        };
+
+        var result = analyzer.Analyze(inventory, forecast, periods, start);
+
+        var row = Assert.Single(result.Rows);
+        Assert.True(row.HasFutureForecast);
+        Assert.Equal("solicita hasta 21.12.2026", row.AutomaticComment);
+    }
+
+    [Fact]
+    public void Analyze_comments_first_requested_period_per_article()
+    {
+        var analyzer = new WarehouseComparisonAnalyzer();
+        var start = new DateOnly(2026, 10, 5);
+        var periods = Enumerable.Range(0, 13).Select(offset => start.AddDays(offset * 7)).ToArray();
+        var forecast = new[]
+        {
+            new ForecastEntry("SKU-A", periods[9], 1),
+            new ForecastEntry("SKU-B", periods[11], 1),
+            new ForecastEntry("SKU-C", periods[12], 1),
+        };
+
+        var result = analyzer.Analyze(Array.Empty<InventoryPosition>(), forecast, periods, start);
+
+        var rows = result.Rows.ToDictionary(row => row.Article, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal("solicita hasta 07.12.2026", rows["SKU-A"].AutomaticComment);
+        Assert.Equal("solicita hasta 21.12.2026", rows["SKU-B"].AutomaticComment);
+        Assert.Equal("solicita hasta 28.12.2026", rows["SKU-C"].AutomaticComment);
+    }
+
+    [Fact]
+    public void Analyze_shows_dash_when_zero_olo_and_weekly_demand_starts_after_five_weeks()
+    {
+        var analyzer = new WarehouseComparisonAnalyzer();
+        var periods = Enumerable.Range(0, 8).Select(offset => StartWeek.AddDays(offset * 7)).ToArray();
+        var inventory = new[]
+        {
+            new InventoryPosition("100022301", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 113),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("100022301", periods[5], 1),
+        };
+
+        var result = analyzer.Analyze(inventory, forecast, periods, StartWeek);
+
+        var row = Assert.Single(result.Rows);
+        Assert.Equal(0, row.OloQuantity);
+        Assert.True(row.HasFutureForecast);
+        Assert.Null(row.CoveragePeriods);
+        Assert.Equal("solicita hasta 05.10.2026", row.AutomaticComment);
+    }
+
+    [Fact]
+    public void Analyze_keeps_zero_coverage_when_zero_olo_and_weekly_demand_starts_within_five_weeks()
+    {
+        var analyzer = new WarehouseComparisonAnalyzer();
+        var periods = Enumerable.Range(0, 8).Select(offset => StartWeek.AddDays(offset * 7)).ToArray();
+        var inventory = new[]
+        {
+            new InventoryPosition("100022301", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 113),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("100022301", periods[4], 1),
+        };
+
+        var result = analyzer.Analyze(inventory, forecast, periods, StartWeek);
+
+        var row = Assert.Single(result.Rows);
+        Assert.Equal(0, row.OloQuantity);
+        Assert.True(row.HasFutureForecast);
+        Assert.Equal(0, row.CoveragePeriods);
+        Assert.Equal("solicita hasta 28.09.2026", row.AutomaticComment);
+    }
+
+    [Fact]
+    public void Analyze_keeps_zero_coverage_for_monthly_forecast()
+    {
+        var analyzer = new WarehouseComparisonAnalyzer();
+        var periods = Enumerable.Range(0, 8).Select(offset => StartWeek.AddMonths(offset)).ToArray();
+        var inventory = new[]
+        {
+            new InventoryPosition("100022301", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 113),
+        };
+        var forecast = new[]
+        {
+            new ForecastEntry("100022301", periods[5], 1),
+        };
+
+        var result = analyzer.Analyze(
+            inventory,
+            forecast,
+            periods,
+            StartWeek,
+            granularity: ForecastGranularity.Monthly);
+
+        var row = Assert.Single(result.Rows);
+        Assert.Equal(0, row.OloQuantity);
+        Assert.True(row.HasFutureForecast);
+        Assert.Equal(0, row.CoveragePeriods);
+    }
+
+    [Fact]
     public void Analyze_coverage_uses_olo_inventory_not_servica()
     {
         var analyzer = new WarehouseComparisonAnalyzer();
@@ -71,6 +233,30 @@ public class WarehouseComparisonAnalyzerTests
         Assert.Equal(25, row.OloQuantity);
         Assert.Equal(1000, row.ServicaQuantity);
         Assert.Equal(2, row.CoveragePeriods);
+    }
+
+    [Fact]
+    public void Analyze_does_not_count_guacima_zones_as_servica_inventory()
+    {
+        var analyzer = new WarehouseComparisonAnalyzer();
+        var periods = new[] { StartWeek };
+        var inventory = new[]
+        {
+            new InventoryPosition("100", "ZA15-ZONA ALMACENAJE ORIGINALES 1 - CLIRO", 10),
+            new InventoryPosition("100", "ZA47-ZA47 - ZONA  ALMACENAJE 1 - GUACIMA", 1),
+            new InventoryPosition("100", "ZA48-ZA48 - ZONA  ALMACENAJE 2 - GUACIMA", 2),
+            new InventoryPosition("100", "ZA49-ZA49 - ZONA  ALMACENAJE 3 - GUACIMA", 3),
+            new InventoryPosition("100", "ZA50-ZA50 - ZONA  ALMACENAJE 4 - GUACIMA", 4),
+            new InventoryPosition("100", "ZA52-ZONA ALMACENAJE MUELLE RECEPCION - GUACIMA", 5),
+            new InventoryPosition("100", "ZA55-ZA55 - ZONA  ALMACENAJE 5 - GUACIMA", 6),
+            new InventoryPosition("100", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 7),
+        };
+
+        var result = analyzer.Analyze(inventory, Array.Empty<ForecastEntry>(), periods, StartWeek);
+
+        var row = Assert.Single(result.Rows);
+        Assert.Equal(31, row.OloQuantity);
+        Assert.Equal(7, row.ServicaQuantity);
     }
 
     [Fact]
@@ -163,7 +349,7 @@ public class WarehouseComparisonAnalyzerTests
     }
 
     [Fact]
-    public void Analyze_excludes_guacima_za55_from_default_inventory_excluded_zones()
+    public void Analyze_excludes_guacima_za55_when_in_default_inventory_excluded_zones()
     {
         var analyzer = new WarehouseComparisonAnalyzer();
         var periods = new[] { StartWeek };

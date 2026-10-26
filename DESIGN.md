@@ -41,6 +41,13 @@ La identidad visual actual usa una paleta mínima para que la app se sienta oper
 - Los números importantes pueden usar peso semibold, pero no deben depender del color para entenderse.
 - La descripción del artículo debe mostrarse siempre que exista en inventario o forecast.
 
+### Buscador
+
+- Cada módulo (Traslados, Expediciones, Tránsito, Comparativa) tiene el mismo buscador: caja de 36 px con lupa a la izquierda, `Ctrl+F` lo enfoca, Enter busca ya y Esc borra.
+- No distingue mayúsculas ni tildes. Varias palabras deben aparecer todas, en cualquier orden. Coma, punto y coma, salto de línea, tabulador o barra separan alternativas; la coma decimal (`2,5`) no separa.
+- Pegar una lista de artículos (columna de Excel o correo) busca todos. Si se buscaron varias cosas, una insignia dentro de la caja muestra cuántas aparecieron (`18/20`): verde suave si están todas, ámbar suave si falta alguna. Al tocarla se ven y se copian las que no aparecieron. El texto de la insignia es negro, como el resto.
+- La búsqueda se aplica cuando el operador deja de escribir (220 ms), no en cada tecla.
+
 ### Movimiento
 
 - La app usa animaciones sutiles de entrada, reposición y cambios de lista.
@@ -178,6 +185,14 @@ Librería: **ClosedXML**. Cada parser **auto-detecta** su hoja y sus columnas (n
 3. **Transito** — seguimiento de pallets mandados a pedir y confirmación de llegada.
 4. **Comparativa e histograma** — inventario OLO contra SERVICA, semanas que alcanza y distribución visual.
 5. **Simulacion** — proyección de demanda y carga logística.
+
+### Buscador de cada módulo
+
+- **Reglas** en `Core/Tables/SearchQuery.cs` (puro y probado). Dentro de una lista, un código se compara como palabra completa (`0002001` no encuentra `100002001`, `2026` no encuentra una fecha); escrito solo, un código parcial encuentra todo lo que lo contiene. Una sola línea de códigos se lee primero como "todas las palabras" (expedición + artículo) y, si ninguna fila los tiene todos, como lista.
+- **Índice** en `Core/Tables/SearchIndex.cs`: el texto buscable de cada fila se normaliza una sola vez (caché débil por fila) y la búsqueda es de una pasada: filtra y anota qué alternativas no encontraron nada. Los códigos de una lista se buscan por diccionario, así que pegar 1.000 artículos cuesta lo mismo por fila que pegar 5.
+- **Qué se indexa**: identificadores, no textos formateados. Traslados y Expediciones: artículo, descripción, número de expedición, y de cada pallet su número, zona y ubicación. Tránsito: artículo, descripción, pallet, ubicación, zona, origen y estado. Comparativa: artículo, descripción y el comentario visible (si se edita o se borran los comentarios, el índice se invalida).
+- **Rendimiento**: escribir en el buscador no reconstruye las listas de los filtros tipo Excel (dependen de la pestaña y los datos, no de la búsqueda); `FilterXRows(refreshOptions: false)` es el camino del buscador. Las columnas sin filtro activo no se evalúan (`IColumnValueFilter.IsActive`).
+- **UI**: `Controls/ModuleSearchBox` + `ViewModels/SearchDebouncer` + `ViewModels/MainPageViewModel.Search.cs`. Los comandos que actúan sobre las filas visibles (confirmar visibles, exportar comparativa) aplican antes la búsqueda pendiente.
 
 ### Estado de vista
 `MainPageViewModel` expone un bool por módulo visible (`ShowTransferView`, `ShowExpedicionesView`, `ShowTransitView`, `ShowWarehouseComparisonView`, `ShowSimulacionView`). Cada bool deriva una `Visibility` calculada.

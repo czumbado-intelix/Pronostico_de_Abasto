@@ -14,7 +14,7 @@
 
                 <!-- ============================ LIGHT (Fluent Logic Abasto) ============================ -->
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="GuardianWindowBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianWindowBackgroundBrush" Color="#F4F6F8" />
                     <SolidColorBrush x:Key="GuardianCardBackgroundBrush" Color="#FFFFFF" />
                     <SolidColorBrush x:Key="GuardianBgDeepBrush" Color="#FFFFFF" />
                     <SolidColorBrush x:Key="GuardianBgMainBrush" Color="#FFFFFF" />
@@ -25,21 +25,21 @@
                     <SolidColorBrush x:Key="GuardianOnPrimaryBrush" Color="#FFFFFF" />
                     <SolidColorBrush x:Key="GuardianSecondaryBrush" Color="#00A88F" Opacity="0.74" />
                     <SolidColorBrush x:Key="GuardianSuccessBrush" Color="#00A88F" />
-                    <SolidColorBrush x:Key="GuardianWarningBrush" Color="#00A88F" />
-                    <SolidColorBrush x:Key="GuardianDangerBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianWarningBrush" Color="#F57C00" />
+                    <SolidColorBrush x:Key="GuardianDangerBrush" Color="#D32F2F" />
                     <SolidColorBrush x:Key="GuardianInfoBrush" Color="#00A88F" />
 
                     <SolidColorBrush x:Key="GuardianTextPrimaryBrush" Color="#000000" />
                     <SolidColorBrush x:Key="GuardianTextSecondaryBrush" Color="#000000" />
-                    <SolidColorBrush x:Key="GuardianTextMutedBrush" Color="#000000" />
+                    <SolidColorBrush x:Key="GuardianTextMutedBrush" Color="#6B7280" />
 
                     <SolidColorBrush x:Key="GuardianPrimaryLowBrush" Color="#00A88F" Opacity="0.08" />
                     <SolidColorBrush x:Key="GuardianPrimaryMediumBrush" Color="#00A88F" Opacity="0.16" />
-                    <SolidColorBrush x:Key="GuardianBorderBrush" Color="#00A88F" Opacity="0.46" />
-                    <SolidColorBrush x:Key="GuardianBorderSoftBrush" Color="#00A88F" Opacity="0.18" />
+                    <SolidColorBrush x:Key="GuardianBorderBrush" Color="#E5E7EB" />
+                    <SolidColorBrush x:Key="GuardianBorderSoftBrush" Color="#E5E7EB" />
                     <SolidColorBrush x:Key="GuardianSuccessLowBrush" Color="#00A88F" Opacity="0.10" />
-                    <SolidColorBrush x:Key="GuardianWarningLowBrush" Color="#00A88F" Opacity="0.10" />
-                    <SolidColorBrush x:Key="GuardianDangerLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianWarningLowBrush" Color="#F57C00" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianDangerLowBrush" Color="#D32F2F" Opacity="0.10" />
                     <SolidColorBrush x:Key="GuardianInfoLowBrush" Color="#00A88F" Opacity="0.10" />
                     <SolidColorBrush x:Key="GuardianHoverBrush" Color="#00A88F" Opacity="0.12" />
                     <SolidColorBrush x:Key="GuardianBrandBrush" Color="#000000" />
@@ -70,7 +70,7 @@
 
                 <!-- ============================ DARK ============================ -->
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="GuardianWindowBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="GuardianWindowBackgroundBrush" Color="#F4F6F8" />
                     <SolidColorBrush x:Key="GuardianCardBackgroundBrush" Color="#FFFFFF" />
                     <SolidColorBrush x:Key="GuardianBgDeepBrush" Color="#FFFFFF" />
                     <SolidColorBrush x:Key="GuardianBgMainBrush" Color="#FFFFFF" />
@@ -81,21 +81,21 @@
                     <SolidColorBrush x:Key="GuardianOnPrimaryBrush" Color="#FFFFFF" />
                     <SolidColorBrush x:Key="GuardianSecondaryBrush" Color="#00A88F" Opacity="0.74" />
                     <SolidColorBrush x:Key="GuardianSuccessBrush" Color="#00A88F" />
-                    <SolidColorBrush x:Key="GuardianWarningBrush" Color="#00A88F" />
-                    <SolidColorBrush x:Key="GuardianDangerBrush" Color="#00A88F" />
+                    <SolidColorBrush x:Key="GuardianWarningBrush" Color="#F57C00" />
+                    <SolidColorBrush x:Key="GuardianDangerBrush" Color="#D32F2F" />
                     <SolidColorBrush x:Key="GuardianInfoBrush" Color="#00A88F" />
 
                     <SolidColorBrush x:Key="GuardianTextPrimaryBrush" Color="#000000" />
                     <SolidColorBrush x:Key="GuardianTextSecondaryBrush" Color="#000000" />
-                    <SolidColorBrush x:Key="GuardianTextMutedBrush" Color="#000000" />
+                    <SolidColorBrush x:Key="GuardianTextMutedBrush" Color="#6B7280" />
 
                     <SolidColorBrush x:Key="GuardianPrimaryLowBrush" Color="#00A88F" Opacity="0.08" />
                     <SolidColorBrush x:Key="GuardianPrimaryMediumBrush" Color="#00A88F" Opacity="0.16" />
-                    <SolidColorBrush x:Key="GuardianBorderBrush" Color="#00A88F" Opacity="0.46" />
-                    <SolidColorBrush x:Key="GuardianBorderSoftBrush" Color="#00A88F" Opacity="0.18" />
+                    <SolidColorBrush x:Key="GuardianBorderBrush" Color="#E5E7EB" />
+                    <SolidColorBrush x:Key="GuardianBorderSoftBrush" Color="#E5E7EB" />
                     <SolidColorBrush x:Key="GuardianSuccessLowBrush" Color="#00A88F" Opacity="0.10" />
-                    <SolidColorBrush x:Key="GuardianWarningLowBrush" Color="#00A88F" Opacity="0.10" />
-                    <SolidColorBrush x:Key="GuardianDangerLowBrush" Color="#00A88F" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianWarningLowBrush" Color="#F57C00" Opacity="0.10" />
+                    <SolidColorBrush x:Key="GuardianDangerLowBrush" Color="#D32F2F" Opacity="0.10" />
                     <SolidColorBrush x:Key="GuardianInfoLowBrush" Color="#00A88F" Opacity="0.10" />
                     <SolidColorBrush x:Key="GuardianHoverBrush" Color="#00A88F" Opacity="0.12" />
                     <SolidColorBrush x:Key="GuardianBrandBrush" Color="#000000" />
@@ -130,24 +130,28 @@
             <FontFamily x:Key="GuardianDisplayFontFamily">ms-appx:///Assets/Fonts/Inter.ttf#Inter</FontFamily>
             <FontFamily x:Key="GuardianFontFamily">ms-appx:///Assets/Fonts/Inter.ttf#Inter</FontFamily>
             <FontFamily x:Key="GuardianMonoFontFamily">ms-appx:///Assets/Fonts/JetBrainsMono.ttf#JetBrains Mono</FontFamily>
-            <FontFamily x:Key="GuardianIconFontFamily">ms-appx:///Assets/Fonts/MaterialSymbols.ttf#Material Symbols Outlined</FontFamily>
+            <FontFamily x:Key="GuardianIconFontFamily">Segoe MDL2 Assets</FontFamily>
 
             <!-- Stitch / Design System Workspace tokens for Traslados and Expediciones. -->
             <SolidColorBrush x:Key="StitchSurfaceBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="StitchSurfaceSubtleBrush" Color="#F7F9F9" />
-            <SolidColorBrush x:Key="StitchTableHeaderBrush" Color="#FAFCFC" />
-            <SolidColorBrush x:Key="StitchBorderBrush" Color="#E2E8E7" />
+            <SolidColorBrush x:Key="StitchSurfaceSubtleBrush" Color="#F9FAFB" />
+            <SolidColorBrush x:Key="StitchProgressTrackBrush" Color="#F3F4F6" />
+            <SolidColorBrush x:Key="StitchTableHeaderBrush" Color="#F9FAFB" />
+            <SolidColorBrush x:Key="StitchBorderBrush" Color="#E5E7EB" />
             <SolidColorBrush x:Key="StitchBorderPrimaryBrush" Color="#A3DDD4" />
             <SolidColorBrush x:Key="StitchPrimaryBrush" Color="#00A88F" />
-            <SolidColorBrush x:Key="StitchPrimaryStrongBrush" Color="#008F7A" />
-            <SolidColorBrush x:Key="StitchPrimarySoftBrush" Color="#E6F7F4" />
-            <SolidColorBrush x:Key="StitchPrimarySurfaceBrush" Color="#F4FAF9" />
-            <SolidColorBrush x:Key="StitchPrimaryBorderBrush" Color="#C2EFEB" />
-            <SolidColorBrush x:Key="StitchPrimaryColumnBrush" Color="#F5FBF9" />
+            <SolidColorBrush x:Key="StitchPrimaryStrongBrush" Color="#00927C" />
+            <SolidColorBrush x:Key="StitchPrimarySoftBrush" Color="#E6F6F4" />
+            <SolidColorBrush x:Key="StitchPrimarySurfaceBrush" Color="#F0FAF8" />
+            <SolidColorBrush x:Key="StitchPrimaryBorderBrush" Color="#CCFBF1" />
+            <SolidColorBrush x:Key="StitchPrimaryColumnBrush" Color="#F0FAF8" />
             <SolidColorBrush x:Key="StitchTextPrimaryBrush" Color="#000000" />
             <SolidColorBrush x:Key="StitchTextMutedBrush" Color="#6B7280" />
             <SolidColorBrush x:Key="StitchTextSoftBrush" Color="#9CA3AF" />
-            <SolidColorBrush x:Key="StitchDangerBrush" Color="#D32F2F" />
+            <SolidColorBrush x:Key="StitchDangerBrush" Color="#DC2626" />
+            <SolidColorBrush x:Key="StitchDangerSoftBrush" Color="#FEF2F2" />
+            <SolidColorBrush x:Key="StitchDangerSurfaceBrush" Color="#FEE2E2" />
+            <SolidColorBrush x:Key="StitchDangerTextBrush" Color="#B91C1C" />
             <SolidColorBrush x:Key="StitchBlackBrush" Color="#000000" />
 
             <!-- ===== Styles (theme-agnostic; resolve brushes per active theme via ThemeResource) ===== -->
@@ -168,26 +172,26 @@
             </Style>
 
             <Style x:Key="StitchPanelBorderStyle" TargetType="Border">
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Padding" Value="16" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Padding" Value="14" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Background" Value="{StaticResource StitchSurfaceBrush}" />
                 <Setter Property="BorderBrush" Value="{StaticResource StitchBorderBrush}" />
             </Style>
 
             <Style x:Key="StitchMetricCardStyle" TargetType="Border">
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Padding" Value="12,10" />
-                <Setter Property="MinHeight" Value="72" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="MinHeight" Value="102" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Background" Value="{StaticResource StitchSurfaceBrush}" />
                 <Setter Property="BorderBrush" Value="{StaticResource StitchBorderBrush}" />
             </Style>
 
             <Style x:Key="StitchPrimaryMetricCardStyle" TargetType="Border">
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Padding" Value="12,10" />
-                <Setter Property="MinHeight" Value="72" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="MinHeight" Value="102" />
                 <Setter Property="BorderThickness" Value="2" />
                 <Setter Property="Background" Value="{StaticResource StitchPrimarySoftBrush}" />
                 <Setter Property="BorderBrush" Value="{StaticResource StitchPrimaryBrush}" />
@@ -265,9 +269,9 @@
                 <Setter Property="Foreground" Value="{ThemeResource GuardianOnPrimaryBrush}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource GuardianPrimaryBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="MinHeight" Value="32" />
-                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="Padding" Value="14,7" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Transitions">
@@ -285,9 +289,9 @@
                 <Setter Property="Foreground" Value="{ThemeResource GuardianTextPrimaryBrush}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource GuardianBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="MinHeight" Value="32" />
-                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="Padding" Value="14,7" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Transitions">
@@ -305,8 +309,8 @@
                 <Setter Property="Background" Value="{ThemeResource GuardianBgElevatedBrush}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource GuardianBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="MinHeight" Value="36" />
                 <Setter Property="FontSize" Value="12" />
             </Style>
 
@@ -315,8 +319,8 @@
                 <Setter Property="Background" Value="{ThemeResource GuardianBgElevatedBrush}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource GuardianBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="MinHeight" Value="36" />
                 <Setter Property="FontSize" Value="12" />
             </Style>
 

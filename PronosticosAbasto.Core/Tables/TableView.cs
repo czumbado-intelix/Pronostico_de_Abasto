@@ -90,8 +90,14 @@ public sealed class TableView<TRow>
         }
     }
 
-    /// <summary>Una fila pasa si pasa el filtro de todas las columnas.</summary>
-    public bool Matches(TRow row) => Array.TrueForAll(_columns, column => column.Matches(row));
+    /// <summary>Una fila pasa si pasa el filtro de todas las columnas que estan filtrando.</summary>
+    /// <remarks>
+    /// Las columnas sin filtro activo ni se consultan: muchos textos de celda se
+    /// formatean al pedirlos (<c>ToString("N0")</c>), y con 13 columnas por fila y
+    /// decenas de miles de filas, preguntarle a filtros que aceptan todo era la
+    /// mayor parte del costo de cada pasada.
+    /// </remarks>
+    public bool Matches(TRow row) => Array.TrueForAll(_columns, column => !column.Filter.IsActive || column.Matches(row));
 
     /// <summary>
     /// Aplica el orden vigente. Las columnas numericas ordenan por numero y dejan
@@ -124,6 +130,12 @@ public sealed class TableView<TRow>
     public IReadOnlyList<TRow> Apply(IEnumerable<TRow> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
-        return ApplySort(rows.Where(Matches)).ToArray();
+
+        // Las columnas activas se resuelven una vez por pasada, no una vez por fila.
+        var active = Array.FindAll(_columns, column => column.Filter.IsActive);
+        var filtered = active.Length == 0
+            ? rows
+            : rows.Where(row => Array.TrueForAll(active, column => column.Matches(row)));
+        return ApplySort(filtered).ToArray();
     }
 }

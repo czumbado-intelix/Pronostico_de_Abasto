@@ -35,6 +35,7 @@ public partial class MainPageViewModel
             new TableColumn<TransferRowViewModel>("Article", row => row.ArticleDescriptionText, TrasladosArticuloFilter),
             new TableColumn<TransferRowViewModel>("Description", row => row.Description, TrasladosDescripcionFilter),
             new TableColumn<TransferRowViewModel>("Coverage", row => row.CoverageText, TrasladosCoberturaFilter, row => row.CoverageWeeksValue),
+            new TableColumn<TransferRowViewModel>("Forecast", row => row.ForecastText, TrasladosForecastFilter, row => row.ForecastQuantity),
             new TableColumn<TransferRowViewModel>("Principal", row => row.PrincipalInventoryText, TrasladosPrincipalFilter, row => row.PrincipalInventoryQuantity),
             new TableColumn<TransferRowViewModel>("StockExt", row => row.SatelliteAvailableText, TrasladosStockExtFilter, row => row.SatelliteAvailableQuantity),
             new TableColumn<TransferRowViewModel>("Transito", row => row.PendingTransitText, TrasladosTransitoFilter, row => row.PendingTransitQuantity),
@@ -43,15 +44,15 @@ public partial class MainPageViewModel
             new TableColumn<TransferRowViewModel>("Pallets", row => row.SuggestedPalletNumbersText, TrasladosPaletsFilter),
             new TableColumn<TransferRowViewModel>("Tarima", row => row.TarimaSizeText, TrasladosTarimaFilter),
             new TableColumn<TransferRowViewModel>("Alistado", row => row.SatellitePreparedText, TrasladosAlistadoFilter),
-            new TableColumn<TransferRowViewModel>("Zonas", row => row.SatelliteZonesText, TrasladosZonasFilter),
-            new TableColumn<TransferRowViewModel>("Status", row => row.StatusLabel, TrasladosEstadoFilter));
+            new TableColumn<TransferRowViewModel>("Difference", row => row.DifferenceText, TrasladosDiffFilter, row => row.DifferenceQuantity),
+            new TableColumn<TransferRowViewModel>("Zonas", row => row.SatelliteZonesText, TrasladosZonasFilter));
 
     private TableView<ExpedicionRowViewModel> BuildExpedicionColumns() =>
         new(
             new TableColumn<ExpedicionRowViewModel>("Expedicion", row => row.ExpeditionNumber, ExpExpedicionFilter),
             new TableColumn<ExpedicionRowViewModel>("Article", row => row.ArticleDescriptionText, ExpArticuloFilter),
             new TableColumn<ExpedicionRowViewModel>("Description", row => row.Description, ExpDescripcionFilter),
-            new TableColumn<ExpedicionRowViewModel>("Cantidad", row => row.DemandText, ExpCantidadFilter, row => row.DemandQuantity),
+            new TableColumn<ExpedicionRowViewModel>("Solicitud", row => row.DemandText, ExpCantidadFilter, row => row.DemandQuantity),
             new TableColumn<ExpedicionRowViewModel>("Principal", row => row.PrincipalInventoryText, ExpPrincipalFilter, row => row.PrincipalQuantity),
             new TableColumn<ExpedicionRowViewModel>("Externas", row => row.SatelliteAvailableText, ExpExternasFilter, row => row.SatelliteQuantity),
             new TableColumn<ExpedicionRowViewModel>("Transito", row => row.PendingTransitText, ExpTransitoFilter, row => row.PendingTransitQuantity),
@@ -60,6 +61,7 @@ public partial class MainPageViewModel
             new TableColumn<ExpedicionRowViewModel>("Pallets", row => row.SuggestedPalletNumbersText, ExpPaletsFilter),
             new TableColumn<ExpedicionRowViewModel>("Tarima", row => row.TarimaSizeText, ExpTarimaFilter),
             new TableColumn<ExpedicionRowViewModel>("Alistado", row => row.SatellitePreparedText, ExpAlistadoFilter),
+            new TableColumn<ExpedicionRowViewModel>("Difference", row => row.DifferenceText, ExpDiffFilter, row => row.DifferenceQuantity),
             new TableColumn<ExpedicionRowViewModel>("Zonas", row => row.SatelliteZonesText, ExpZonasFilter),
             new TableColumn<ExpedicionRowViewModel>("Pendiente", row => row.RemainingShortageText, ExpPendienteFilter, row => row.RemainingShortageQuantity));
 

@@ -93,6 +93,68 @@ public sealed class AnalysisWorkbookExporter
         return stream.ToArray();
     }
 
+    public byte[] ExportExpediciones(
+        string companyName,
+        IEnumerable<ExpedicionesExportRow> visibleRows)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(companyName);
+        ArgumentNullException.ThrowIfNull(visibleRows);
+
+        var rows = visibleRows.ToArray();
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Expediciones");
+        var headers = new[]
+        {
+            "Articulo",
+            "Descripcion",
+            "Pallet",
+            "Solicitud",
+            "Ubicacion",
+            "Zona",
+            "Tamano tarima",
+        };
+
+        for (var index = 0; index < headers.Length; index++)
+        {
+            sheet.Cell(1, index + 1).Value = headers[index];
+        }
+
+        StyleHeaderRange(sheet.Range(1, 1, 1, headers.Length));
+
+        var rowNumber = 2;
+        foreach (var row in rows)
+        {
+            foreach (var pallet in row.Pallets)
+            {
+                sheet.Cell(rowNumber, 1).Value = row.Article;
+                sheet.Cell(rowNumber, 2).Value = row.Description;
+                sheet.Cell(rowNumber, 3).Value = pallet.Pallet;
+                sheet.Cell(rowNumber, 4).Value = pallet.Quantity;
+                sheet.Cell(rowNumber, 5).Value = FormatLocation(pallet.Location);
+                sheet.Cell(rowNumber, 6).Value = pallet.StorageZone;
+                sheet.Cell(rowNumber, 7).Value = NormalizeExportText(row.TarimaSize);
+                rowNumber++;
+            }
+        }
+
+        if (rowNumber > 2)
+        {
+            sheet.Range(1, 1, rowNumber - 1, headers.Length).SetAutoFilter();
+        }
+
+        sheet.SheetView.FreezeRows(1);
+        sheet.Column(1).Style.NumberFormat.Format = "@";
+        sheet.Column(3).Style.NumberFormat.Format = "@";
+        sheet.Columns().AdjustToContents();
+        sheet.Column(2).Width = Math.Min(sheet.Column(2).Width, 54);
+        sheet.Column(6).Width = Math.Min(sheet.Column(6).Width, 54);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
     /// <summary>
     /// Exports the transfer requisition: only the articles that need (and can
     /// get) stock from the external/satellite warehouse, with how much to bring,
@@ -112,6 +174,11 @@ public sealed class AnalysisWorkbookExporter
         ArgumentNullException.ThrowIfNull(analysisResult);
 
         var ordered = orderedArticles ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var includedArticles = selectedPalletsByArticle is null
+            ? null
+            : selectedPalletsByArticle.Keys
+                .Select(InventoryZoneClassifier.NormalizeArticleKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Requisicion");
@@ -142,6 +209,7 @@ public sealed class AnalysisWorkbookExporter
         var row = 5;
         foreach (var article in analysisResult.Articles
             .Where(article =>
+                IsIncludedArticle(article.Article, includedArticles) &&
                 article.TransferSuggestionQuantity > 0 &&
                 !IsPreparedArticle(article.Article, preparedArticles) &&
                 ResolvePallets(article, selectedPalletsByArticle).Count > 0)
@@ -170,8 +238,8 @@ public sealed class AnalysisWorkbookExporter
         }
 
         sheet.Columns().AdjustToContents();
-        CreatePreparedSatelliteRequisitionSheet(workbook, companyName, analysisResult, descriptions, preparedArticles, tarimaSizes, pendingPalletKeys);
-        CreateOriginSheets(workbook, analysisResult, descriptions, preparedArticles, tarimaSizes, selectedPalletsByArticle, pendingPalletKeys);
+        CreatePreparedSatelliteRequisitionSheet(workbook, companyName, analysisResult, descriptions, preparedArticles, tarimaSizes, pendingPalletKeys, includedArticles);
+        CreateOriginSheets(workbook, analysisResult, descriptions, preparedArticles, tarimaSizes, selectedPalletsByArticle, pendingPalletKeys, includedArticles);
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
@@ -185,7 +253,8 @@ public sealed class AnalysisWorkbookExporter
         IReadOnlyDictionary<string, string>? descriptions,
         IReadOnlySet<string>? preparedArticles,
         IReadOnlyDictionary<string, TarimaSizeEntry>? tarimaSizes,
-        IReadOnlySet<string>? pendingPalletKeys)
+        IReadOnlySet<string>? pendingPalletKeys,
+        IReadOnlySet<string>? includedArticles)
     {
         var sheet = workbook.AddWorksheet("Alistado satelital");
         sheet.Cell("A1").Value = "Empresa";
@@ -211,7 +280,10 @@ public sealed class AnalysisWorkbookExporter
 
         var row = 5;
         foreach (var article in analysisResult.Articles
-            .Where(article => article.TransferSuggestionQuantity > 0 && IsPreparedArticle(article.Article, preparedArticles))
+            .Where(article =>
+                IsIncludedArticle(article.Article, includedArticles) &&
+                article.TransferSuggestionQuantity > 0 &&
+                IsPreparedArticle(article.Article, preparedArticles))
             .OrderByDescending(article => article.TransferSuggestionQuantity)
             .ThenBy(article => article.Article, StringComparer.OrdinalIgnoreCase))
         {
@@ -241,10 +313,12 @@ public sealed class AnalysisWorkbookExporter
         IReadOnlySet<string>? preparedArticles,
         IReadOnlyDictionary<string, TarimaSizeEntry>? tarimaSizes,
         IReadOnlyDictionary<string, IReadOnlyList<PalletInventoryDetail>>? selectedPalletsByArticle,
-        IReadOnlySet<string>? pendingPalletKeys)
+        IReadOnlySet<string>? pendingPalletKeys,
+        IReadOnlySet<string>? includedArticles)
     {
         var rows = analysisResult.Articles
             .Where(article =>
+                IsIncludedArticle(article.Article, includedArticles) &&
                 article.TransferSuggestionQuantity > 0 &&
                 !IsPreparedArticle(article.Article, preparedArticles))
             .SelectMany(article =>
@@ -328,6 +402,11 @@ public sealed class AnalysisWorkbookExporter
     private static string FormatLocation(string location) =>
         string.IsNullOrWhiteSpace(location) ? "Sin ubicacion" : location.Trim();
 
+    private static string NormalizeExportText(string value) =>
+        string.IsNullOrWhiteSpace(value) || value.Trim() == "—"
+            ? string.Empty
+            : value.Trim();
+
     private static IReadOnlyList<PalletInventoryDetail> ResolvePallets(
         ArticleAnalysisResult article,
         IReadOnlyDictionary<string, IReadOnlyList<PalletInventoryDetail>>? selectedPalletsByArticle)
@@ -339,8 +418,18 @@ public sealed class AnalysisWorkbookExporter
             return selected;
         }
 
+        if (selectedPalletsByArticle is not null)
+        {
+            return Array.Empty<PalletInventoryDetail>();
+        }
+
         return article.SuggestedPallets;
     }
+
+    private static bool IsIncludedArticle(string article, IReadOnlySet<string>? includedArticles) =>
+        includedArticles is null ||
+        includedArticles.Contains(article) ||
+        includedArticles.Contains(InventoryZoneClassifier.NormalizeArticleKey(article));
 
     private static string ToTransitState(
         string article,
@@ -357,7 +446,7 @@ public sealed class AnalysisWorkbookExporter
             return "Nuevo";
         }
 
-        var pending = pallets.Count(pallet => pendingPalletKeys.Contains(PalletIdentity.Build(article, pallet)));
+        var pending = pallets.Count(pallet => pendingPalletKeys.Contains(PalletIdentity.BuildArticlePallet(article, pallet)));
         return pending == pallets.Count
             ? "Pendiente"
             : pending == 0

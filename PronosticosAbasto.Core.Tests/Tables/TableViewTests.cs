@@ -202,6 +202,21 @@ public class TableViewTests
     }
 
     [Fact]
+    public void Columns_without_an_active_filter_are_never_read()
+    {
+        var reads = 0;
+        var idle = new FakeFilter();
+        var active = new FakeFilter { Contains = "B" };
+        var view = new TableView<Row>(
+            new TableColumn<Row>("Article", row => row.Article, active),
+            new TableColumn<Row>("Status", row => { reads++; return row.Status; }, idle));
+
+        Assert.Equal(new[] { "B-100" }, view.Apply(Rows).Select(row => row.Article));
+        Assert.True(view.Matches(Rows[0]));
+        Assert.Equal(0, reads);
+    }
+
+    [Fact]
     public void ColumnFor_finds_the_owner_of_a_filter()
     {
         var (view, _, status, _) = Build();

@@ -7,6 +7,7 @@ public sealed partial class WarehouseComparisonRowViewModel : ObservableObject, 
 {
     private readonly Action<WarehouseComparisonRowViewModel> _commentChanged;
     private bool _suppressCommentChanged;
+    private bool _hasManualComment;
 
     public WarehouseComparisonRowViewModel(
         WarehouseComparisonRow source,
@@ -26,8 +27,11 @@ public sealed partial class WarehouseComparisonRowViewModel : ObservableObject, 
         AutomaticComment = source.AutomaticComment;
         _commentChanged = commentChanged;
 
+        var manualComment = string.IsNullOrWhiteSpace(comment) ? string.Empty : comment.Trim();
+        HasManualComment = IsManualComment(manualComment);
+
         _suppressCommentChanged = true;
-        CommentText = string.IsNullOrWhiteSpace(comment) ? source.AutomaticComment : comment.Trim();
+        CommentText = HasManualComment ? manualComment : source.AutomaticComment;
         _suppressCommentChanged = false;
     }
 
@@ -55,6 +59,12 @@ public sealed partial class WarehouseComparisonRowViewModel : ObservableObject, 
 
     public string ServicaQuantityText => ServicaQuantity.ToString("N0");
 
+    public bool HasManualComment
+    {
+        get => _hasManualComment;
+        private set => SetProperty(ref _hasManualComment, value);
+    }
+
     [ObservableProperty]
     public partial string CommentText { get; set; } = string.Empty;
 
@@ -62,7 +72,22 @@ public sealed partial class WarehouseComparisonRowViewModel : ObservableObject, 
     {
         if (!_suppressCommentChanged)
         {
+            HasManualComment = IsManualComment(value);
             _commentChanged(this);
+        }
+    }
+
+    public void ClearManualCommentWithoutSaving()
+    {
+        _suppressCommentChanged = true;
+        try
+        {
+            CommentText = AutomaticComment;
+            HasManualComment = false;
+        }
+        finally
+        {
+            _suppressCommentChanged = false;
         }
     }
 
@@ -77,4 +102,11 @@ public sealed partial class WarehouseComparisonRowViewModel : ObservableObject, 
 
     private static string FormatCoverage(decimal? coverage, string periodUnit) =>
         coverage is decimal value ? $"{value:0.#} {periodUnit}" : "—";
+
+    private bool IsManualComment(string? value)
+    {
+        var trimmed = value?.Trim();
+        return !string.IsNullOrWhiteSpace(trimmed) &&
+            !string.Equals(trimmed, AutomaticComment?.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
 }

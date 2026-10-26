@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -57,6 +57,8 @@ public partial class MainPageViewModel : ObservableObject
     /// escritura por fila para dejar un solo guardado al final.
     /// </summary>
     private bool _isBulkOrderUpdate;
+
+    private bool _isBulkExpedicionOrderUpdate;
 
     private WeeklyAnalysisResult? _filteredAnalysis;
     private IReadOnlyList<ArticleResultRowViewModel> _allResults = Array.Empty<ArticleResultRowViewModel>();
@@ -130,6 +132,7 @@ public partial class MainPageViewModel : ObservableObject
         TrasladosArticuloFilter = new TextColumnFilter(FilterTransferRows);
         TrasladosDescripcionFilter = new TextColumnFilter(FilterTransferRows);
         TrasladosCoberturaFilter = new TextColumnFilter(FilterTransferRows);
+        TrasladosForecastFilter = new TextColumnFilter(FilterTransferRows);
         TrasladosPrincipalFilter = new TextColumnFilter(FilterTransferRows);
         TrasladosStockExtFilter = new TextColumnFilter(FilterTransferRows);
         TrasladosTransitoFilter = new TextColumnFilter(FilterTransferRows);
@@ -139,8 +142,8 @@ public partial class MainPageViewModel : ObservableObject
         TrasladosTarimaFilter = new TextColumnFilter(FilterTransferRows);
         TrasladosAlistadoFilter = new TextColumnFilter(FilterTransferRows);
         TrasladosZonasFilter = new TextColumnFilter(FilterTransferRows);
-        TrasladosEstadoFilter = new TextColumnFilter(FilterTransferRows);
-        ExpExpedicionFilter = new TextColumnFilter(FilterExpedicionRows);
+        TrasladosDiffFilter = new TextColumnFilter(FilterTransferRows);
+        ExpExpedicionFilter = new TextColumnFilter(FilterExpedicionRows, ExpeditionNumberFormatter.ExtractNumbers);
         ExpArticuloFilter = new TextColumnFilter(FilterExpedicionRows);
         ExpDescripcionFilter = new TextColumnFilter(FilterExpedicionRows);
         ExpCantidadFilter = new TextColumnFilter(FilterExpedicionRows);
@@ -154,6 +157,7 @@ public partial class MainPageViewModel : ObservableObject
         ExpAlistadoFilter = new TextColumnFilter(FilterExpedicionRows);
         ExpZonasFilter = new TextColumnFilter(FilterExpedicionRows);
         ExpPendienteFilter = new TextColumnFilter(FilterExpedicionRows);
+        ExpDiffFilter = new TextColumnFilter(FilterExpedicionRows);
         ComparisonArticuloFilter = new TextColumnFilter(FilterWarehouseComparisonRows);
         ComparisonDescripcionFilter = new TextColumnFilter(FilterWarehouseComparisonRows);
         ComparisonOloFilter = new TextColumnFilter(FilterWarehouseComparisonRows);
@@ -165,6 +169,7 @@ public partial class MainPageViewModel : ObservableObject
         _transferColumns = BuildTransferColumns();
         _expedicionColumns = BuildExpedicionColumns();
         _warehouseComparisonColumns = BuildWarehouseComparisonColumns();
+        InitializeSearch();
 
         ApplySessionToUi();
         RefreshTransitRows();
@@ -187,6 +192,12 @@ public partial class MainPageViewModel : ObservableObject
 
     private IReadOnlyList<TransferRowViewModel> _transferRows = Array.Empty<TransferRowViewModel>();
     private IReadOnlyList<TransferRowViewModel> _allTransferRows = Array.Empty<TransferRowViewModel>();
+
+    /// <summary>Filas de la pestana actual de Traslados, antes de buscar y filtrar columnas.</summary>
+    private IReadOnlyList<TransferRowViewModel> _transferTabRows = Array.Empty<TransferRowViewModel>();
+
+    /// <summary>Filas de la pestana actual de Expediciones, antes de buscar y filtrar columnas.</summary>
+    private IReadOnlyList<ExpedicionRowViewModel> _expedicionTabRows = Array.Empty<ExpedicionRowViewModel>();
 
     // Populated as a single array assignment (one notification) instead of
     // ObservableCollection.Add per item, so the virtualized ListView rebinds
@@ -213,6 +224,15 @@ public partial class MainPageViewModel : ObservableObject
         ShowTransferView && HasSelectedTransferRow ? Visibility.Visible : Visibility.Collapsed;
 
     [ObservableProperty]
+    public partial ExpedicionRowViewModel? SelectedExpedicionRow { get; set; }
+
+    public bool HasSelectedExpedicionRow =>
+        SelectedExpedicionRow is { PalletOptions.Count: > 0 };
+
+    public Visibility ExpedicionPalletPaneVisibility =>
+        ShowExpedicionesView && HasSelectedExpedicionRow ? Visibility.Visible : Visibility.Collapsed;
+
+    [ObservableProperty]
     public partial string TransferSearchText { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -224,6 +244,8 @@ public partial class MainPageViewModel : ObservableObject
     public TextColumnFilter TrasladosDescripcionFilter { get; }
 
     public TextColumnFilter TrasladosCoberturaFilter { get; }
+
+    public TextColumnFilter TrasladosForecastFilter { get; }
 
     public TextColumnFilter TrasladosPrincipalFilter { get; }
 
@@ -243,24 +265,18 @@ public partial class MainPageViewModel : ObservableObject
 
     public TextColumnFilter TrasladosZonasFilter { get; }
 
-    public TextColumnFilter TrasladosEstadoFilter { get; }
-
-    [ObservableProperty]
-    public partial StatusFilterOptionViewModel? SelectedTrasladosEstadoOption { get; set; }
-
-    public bool TrasladosEstadoFilterActive =>
-        TrasladosEstadoFilter.IsActive;
-
-    partial void OnSelectedTrasladosEstadoOptionChanged(StatusFilterOptionViewModel? value)
-    {
-        OnPropertyChanged(nameof(TrasladosEstadoFilterActive));
-        FilterTransferRows();
-    }
+    public TextColumnFilter TrasladosDiffFilter { get; }
 
     partial void OnSelectedTransferRowChanged(TransferRowViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelectedTransferRow));
         OnPropertyChanged(nameof(TransferPalletPaneVisibility));
+    }
+
+    partial void OnSelectedExpedicionRowChanged(ExpedicionRowViewModel? value)
+    {
+        OnPropertyChanged(nameof(HasSelectedExpedicionRow));
+        OnPropertyChanged(nameof(ExpedicionPalletPaneVisibility));
     }
 
     // Google-Sheets-style per-column filters (Expediciones table).
@@ -292,6 +308,8 @@ public partial class MainPageViewModel : ObservableObject
 
     public TextColumnFilter ExpPendienteFilter { get; }
 
+    public TextColumnFilter ExpDiffFilter { get; }
+
     // Google-Sheets-style per-column filters (Comparativa table).
     public TextColumnFilter ComparisonArticuloFilter { get; }
 
@@ -315,13 +333,19 @@ public partial class MainPageViewModel : ObservableObject
                 OnPropertyChanged(nameof(HasWarehouseComparisonRows));
                 OnPropertyChanged(nameof(WarehouseComparisonSummaryText));
                 ExportWarehouseComparisonCommand.NotifyCanExecuteChanged();
+                ClearWarehouseComparisonCommentsCommand.NotifyCanExecuteChanged();
             }
         }
     }
 
     public bool HasWarehouseComparisonRows => WarehouseComparisonRows.Count > 0;
 
-    public bool HasWarehouseComparisonFilters => _warehouseComparisonColumns.AnyFilterActive;
+    public bool HasWarehouseComparisonComments =>
+        _allWarehouseComparisonRows.Any(row => row.HasManualComment);
+
+    public bool HasWarehouseComparisonFilters =>
+        _warehouseComparisonColumns.AnyFilterActive ||
+        !string.IsNullOrWhiteSpace(WarehouseComparisonSearchText);
 
     [ObservableProperty]
     public partial string SelectedWarehouseComparisonView { get; set; } = "Tabla";
@@ -348,6 +372,22 @@ public partial class MainPageViewModel : ObservableObject
 
     public bool IsTabAlistadoSatelital => SelectedTransferTab == "AlistadoSatelital";
 
+    public string TransferAllTabCountText => FunnelEvaluated.ToString("N0");
+
+    public string TransferToBringTabCountText => FunnelToTransfer.ToString("N0");
+
+    public string TransferCriticalTabCountText => TransferCriticalTotal.ToString("N0");
+
+    public string TransferPreparedTabCountText => TransferPreparedTotal.ToString("N0");
+
+    public string SendSelectedToTransitButtonText =>
+        OrderedCount > 0 ? $"Mandar a pedir ({OrderedCount:N0} seleccionados)" : "Mandar a pedir";
+
+    public string LastCalculationText =>
+        CurrentSession.LastCalculatedAt is DateTimeOffset calculatedAt
+            ? FormatRelativeCalculationTime(calculatedAt)
+            : "Pendiente";
+
     [ObservableProperty]
     public partial string SelectedExpedicionTab { get; set; } = "Todos";
 
@@ -363,10 +403,6 @@ public partial class MainPageViewModel : ObservableObject
     public bool IsExpTabSinSatelite => SelectedExpedicionTab == "SinSatelite";
 
     public bool IsExpTabAlistadoSatelital => SelectedExpedicionTab == "AlistadoSatelital";
-
-    partial void OnTransferSearchTextChanged(string value) => FilterTransferRows();
-
-    partial void OnExpedicionSearchTextChanged(string value) => FilterExpedicionRows();
 
     partial void OnSelectedTransferTabChanged(string value)
     {
@@ -412,12 +448,20 @@ public partial class MainPageViewModel : ObservableObject
         }
     }
 
-    private void FilterTransferRows()
+    private void FilterTransferRows() => FilterTransferRows(refreshOptions: true);
+
+    /// <param name="refreshOptions">
+    /// false solo cuando lo unico que cambio es el buscador: las listas de los
+    /// filtros tipo Excel dependen de la pestana y los datos, no de la busqueda.
+    /// </param>
+    private void FilterTransferRows(bool refreshOptions)
     {
         if (TrasladosArticuloFilter is null)
         {
             return;
         }
+
+        _transferSearch.Cancel();
 
         var showPreparedOnly = SelectedTransferTab == "AlistadoSatelital";
         IEnumerable<TransferRowViewModel> tabQuery = showPreparedOnly
@@ -434,17 +478,15 @@ public partial class MainPageViewModel : ObservableObject
         };
 
         var tabRows = tabQuery.ToList();
+        _transferTabRows = tabRows;
         TransferTabTotal = tabRows.Count;
-        RefreshTransferFilterOptions(tabRows);
-        IEnumerable<TransferRowViewModel> query = tabRows;
-
-        var search = TransferSearchText?.Trim();
-        if (!string.IsNullOrEmpty(search))
+        if (refreshOptions)
         {
-            query = query.Where(row =>
-                row.Article.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                row.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
+            RefreshTransferFilterOptions(tabRows);
         }
+
+        var query = ApplySearch(_transferSearchIndex, tabRows, TransferSearchText, out var searchSummary);
+        TransferSearchSummary = searchSummary;
 
         var visibleRows = _transferColumns.Apply(query);
         TransferRows = visibleRows;
@@ -464,12 +506,30 @@ public partial class MainPageViewModel : ObservableObject
         }
     }
 
-    private void FilterExpedicionRows()
+    private void EnsureSelectedExpedicionRowIsVisible()
+    {
+        if (SelectedExpedicionRow is not { } selected)
+        {
+            return;
+        }
+
+        if (!ExpedicionRows.Contains(selected))
+        {
+            SelectedExpedicionRow = null;
+        }
+    }
+
+    private void FilterExpedicionRows() => FilterExpedicionRows(refreshOptions: true);
+
+    /// <param name="refreshOptions">Ver <see cref="FilterTransferRows(bool)"/>.</param>
+    private void FilterExpedicionRows(bool refreshOptions)
     {
         if (ExpArticuloFilter is null)
         {
             return;
         }
+
+        _expedicionSearch.Cancel();
 
         var tabRows = _allExpedicionRows
             .Where(row => SelectedExpedicionTab switch
@@ -481,33 +541,44 @@ public partial class MainPageViewModel : ObservableObject
                 _ => !row.IsSatellitePrepared,
             })
             .ToList();
+        _expedicionTabRows = tabRows;
         ExpTabTotal = tabRows.Count;
-        RefreshExpedicionFilterOptions(tabRows);
-
-        IEnumerable<ExpedicionRowViewModel> query = tabRows;
-        var search = ExpedicionSearchText?.Trim();
-        if (!string.IsNullOrEmpty(search))
+        if (refreshOptions)
         {
-            query = query.Where(row =>
-                row.ExpeditionNumber.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                row.Article.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                row.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
+            RefreshExpedicionFilterOptions(tabRows);
         }
+
+        var query = ApplySearch(_expedicionSearchIndex, tabRows, ExpedicionSearchText, out var searchSummary);
+        ExpedicionSearchSummary = searchSummary;
 
         ExpedicionRows = _expedicionColumns.Apply(query);
         ExpedicionesLineCount = ExpedicionRows.Count;
     }
 
-    private void FilterWarehouseComparisonRows()
+    private void FilterWarehouseComparisonRows() => FilterWarehouseComparisonRows(refreshOptions: true);
+
+    /// <param name="refreshOptions">Ver <see cref="FilterTransferRows(bool)"/>.</param>
+    private void FilterWarehouseComparisonRows(bool refreshOptions)
     {
         if (ComparisonArticuloFilter is null)
         {
             return;
         }
 
-        RefreshWarehouseComparisonFilterOptions(_allWarehouseComparisonRows);
+        _warehouseComparisonSearch.Cancel();
+        if (refreshOptions)
+        {
+            RefreshWarehouseComparisonFilterOptions(_allWarehouseComparisonRows);
+        }
 
-        var visibleRows = _warehouseComparisonColumns.Apply(_allWarehouseComparisonRows);
+        var searched = ApplySearch(
+            _warehouseComparisonSearchIndex,
+            _allWarehouseComparisonRows,
+            WarehouseComparisonSearchText,
+            out var searchSummary);
+        WarehouseComparisonSearchSummary = searchSummary;
+
+        var visibleRows = _warehouseComparisonColumns.Apply(searched);
 
         WarehouseComparisonRows = visibleRows;
         WarehouseComparisonVisibleTotal = visibleRows.Count;
@@ -674,39 +745,90 @@ public partial class MainPageViewModel : ObservableObject
     private void RefreshTransitRows()
     {
         var rows = _transferTransitStore
-            .GetPending(SelectedCompany)
+            .GetAll(SelectedCompany)
             .Select(item => new TransitRowViewModel(item, OnTransitRowSelectionChanged))
             .ToArray();
 
         _allTransitRows = rows;
-        TransitPendingCount = rows.Length;
-        TransitPendingQuantity = rows.Sum(row => row.Quantity);
+        TransitPendingCount = rows.Count(row => row.IsPending);
+        TransitReceivedPendingCount = rows.Count(row => row.IsReceivedPendingInventory);
+        TransitReconciledCount = rows.Count(row => row.IsReconciled);
+        TransitPendingQuantity = rows.Where(row => row.IsPending).Sum(row => row.Quantity);
+        EnsureVisibleTransitTabHasRows();
         FilterTransitRows();
+    }
+
+    public void RefreshTransitPresentation()
+    {
+        _allowEmptyTransitTab = true;
+        RefreshTransitRows();
+    }
+
+    private void EnsureVisibleTransitTabHasRows()
+    {
+        var effectiveTab = ResolveTransitStatusTab();
+        if (!string.Equals(SelectedTransitStatusTab, effectiveTab, StringComparison.OrdinalIgnoreCase))
+        {
+            SelectedTransitStatusTab = effectiveTab;
+        }
     }
 
     private void FilterTransitRows()
     {
-        var search = TransitSearchText?.Trim();
-        IEnumerable<TransitRowViewModel> query = _allTransitRows;
-        if (!string.IsNullOrWhiteSpace(search))
+        var effectiveTab = ResolveTransitStatusTab();
+        if (!string.Equals(SelectedTransitStatusTab, effectiveTab, StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(row =>
-                row.Article.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                row.Description.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                row.Pallet.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                row.Location.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                row.StorageZone.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                row.Origin.Contains(search, StringComparison.OrdinalIgnoreCase));
+            SelectedTransitStatusTab = effectiveTab;
+            return;
         }
+
+        _transitSearch.Cancel();
+        var tabRows = _allTransitRows
+            .Where(row => effectiveTab switch
+            {
+                "Recibidos" => row.IsReceivedPendingInventory || row.IsReconciled,
+                "Conciliados" => row.IsReceivedPendingInventory || row.IsReconciled,
+                _ => row.IsPending,
+            })
+            .ToArray();
+
+        var query = ApplySearch(_transitSearchIndex, tabRows, TransitSearchText, out var searchSummary);
+        TransitSearchSummary = searchSummary;
 
         TransitRows = query.ToArray();
         TransitVisibleCount = TransitRows.Count;
-        TransitSelectedCount = _allTransitRows.Count(row => row.IsSelected);
+        TransitSelectedCount = _allTransitRows.Count(row => row.IsSelected && row.CanConfirmReceived);
+    }
+
+    private string ResolveTransitStatusTab()
+    {
+        if (string.Equals(SelectedTransitStatusTab, "Recibidos", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Conciliados";
+        }
+
+        if (_allowEmptyTransitTab)
+        {
+            return SelectedTransitStatusTab;
+        }
+
+        var historyCount = TransitReceivedPendingCount + TransitReconciledCount;
+        if (SelectedTransitStatusTab == "Pendientes" && TransitPendingCount == 0 && historyCount > 0)
+        {
+            return "Conciliados";
+        }
+
+        if (SelectedTransitStatusTab == "Conciliados" && historyCount == 0 && TransitPendingCount > 0)
+        {
+            return "Pendientes";
+        }
+
+        return SelectedTransitStatusTab;
     }
 
     private void OnTransitRowSelectionChanged(TransitRowViewModel row)
     {
-        TransitSelectedCount = _allTransitRows.Count(item => item.IsSelected);
+        TransitSelectedCount = _allTransitRows.Count(item => item.IsSelected && item.CanConfirmReceived);
         ConfirmSelectedTransitCommand.NotifyCanExecuteChanged();
     }
 
@@ -739,6 +861,9 @@ public partial class MainPageViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool ShowSimulacionView { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsOperationsPanelExpanded { get; set; } = true;
 
     [ObservableProperty]
     public partial int WarehouseComparisonTotal { get; set; }
@@ -794,11 +919,16 @@ public partial class MainPageViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(FunnelCoveredPercentText));
         OnPropertyChanged(nameof(FunnelToTransferProgress));
+        OnPropertyChanged(nameof(TransferAllTabCountText));
     }
 
     partial void OnFunnelCoveredChanged(int value) => OnPropertyChanged(nameof(FunnelCoveredPercentText));
 
-    partial void OnFunnelToTransferChanged(int value) => OnPropertyChanged(nameof(FunnelToTransferProgress));
+    partial void OnFunnelToTransferChanged(int value)
+    {
+        OnPropertyChanged(nameof(FunnelToTransferProgress));
+        OnPropertyChanged(nameof(TransferToBringTabCountText));
+    }
 
     partial void OnFunnelWithoutExternalChanged(int value) => OnPropertyChanged(nameof(FunnelWithoutExternalSubtext));
 
@@ -818,6 +948,9 @@ public partial class MainPageViewModel : ObservableObject
 
     [ObservableProperty]
     public partial int TransferPreparedTotal { get; set; }
+
+    [ObservableProperty]
+    public partial int TransferCriticalTotal { get; set; }
 
     [ObservableProperty]
     public partial int TransferVisibleTotal { get; set; }
@@ -840,7 +973,21 @@ public partial class MainPageViewModel : ObservableObject
     // The load bubble (Inventario/Forecast/Semana/Horizonte) applies to
     // Traslados/Comparativa; Expediciones, Transito and Simulacion don't use it.
     public Visibility LoadPanelVisibility =>
-        ShowExpedicionesView || ShowTransitView || ShowSimulacionView ? Visibility.Collapsed : Visibility.Visible;
+        ShowExpedicionesView ||
+        ShowTransitView ||
+        ShowSimulacionView ||
+        (ShowTransferView && !IsOperationsPanelExpanded)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+    public Visibility TransferOperationsPanelVisibility =>
+        ShowTransferView && IsOperationsPanelExpanded ? Visibility.Visible : Visibility.Collapsed;
+
+    public string OperationsPanelToggleText =>
+        IsOperationsPanelExpanded ? "Ocultar panel" : "Mostrar panel";
+
+    public string OperationsPanelToggleGlyph =>
+        IsOperationsPanelExpanded ? "\uE70E" : "\uE70D";
 
     public Visibility AnalysisPeriodControlsVisibility =>
         Visibility.Visible;
@@ -868,7 +1015,6 @@ public partial class MainPageViewModel : ObservableObject
 
         UpdateVisibleLoadFileNames();
         ApplyWeeksFromSession();
-        RestoreActiveSectionPresentation();
         AnalyzeCommand.NotifyCanExecuteChanged();
         ExportCommand.NotifyCanExecuteChanged();
         ExportWarehouseComparisonCommand.NotifyCanExecuteChanged();
@@ -876,6 +1022,12 @@ public partial class MainPageViewModel : ObservableObject
         if (ShowSimulacionView)
         {
             EjecutarSimulacion();
+        }
+
+        if (ShowTransitView)
+        {
+            _allowEmptyTransitTab = false;
+            RefreshTransitRows();
         }
 
         if (ShowTransferView && CurrentSession.LastAnalysis is null)
@@ -886,6 +1038,12 @@ public partial class MainPageViewModel : ObservableObject
         {
             _ = TryAutoAnalyzeAsync();
         }
+    }
+
+    [RelayCommand]
+    private void ToggleOperationsPanel()
+    {
+        IsOperationsPanelExpanded = !IsOperationsPanelExpanded;
     }
 
     private void RestoreActiveSectionPresentation()
@@ -911,6 +1069,14 @@ public partial class MainPageViewModel : ObservableObject
         ShowWarehouseComparisonView ? "Comparativa e histograma" :
         ShowSimulacionView ? "Simulacion Logistica" :
         "Traslados";
+
+    public string SectionSubtitle =>
+        ShowTransferView
+            ? "Pronosticos de requisicion y reabastecimiento continuo entre bodegas"
+            : "Pronostico de Abasto";
+
+    public Visibility TransferHeaderBadgeVisibility =>
+        ShowTransferView ? Visibility.Visible : Visibility.Collapsed;
 
     public string SectionIconGlyph =>
         ShowExpedicionesView ? "\uE558" :
@@ -1063,6 +1229,30 @@ public partial class MainPageViewModel : ObservableObject
                 ? "Cargar inventario y forecast de Traslados"
                 : $"{InventoryFileName}  ·  {ForecastFileName}  ·  {SelectedHorizon?.Label ?? "4 semanas"}";
 
+    private static string FormatRelativeCalculationTime(DateTimeOffset calculatedAt)
+    {
+        var elapsed = DateTimeOffset.Now - calculatedAt;
+        if (elapsed.TotalMinutes < 1)
+        {
+            return "Hace menos de 1 min";
+        }
+
+        if (elapsed.TotalHours < 1)
+        {
+            var minutes = Math.Max(1, (int)Math.Round(elapsed.TotalMinutes));
+            return $"Hace {minutes:N0} min";
+        }
+
+        if (elapsed.TotalDays < 1)
+        {
+            var hours = Math.Max(1, (int)Math.Round(elapsed.TotalHours));
+            return $"Hace {hours:N0} h";
+        }
+
+        var days = Math.Max(1, (int)Math.Round(elapsed.TotalDays));
+        return $"Hace {days:N0} d";
+    }
+
     public string TransferSummaryText
     {
         get
@@ -1084,65 +1274,110 @@ public partial class MainPageViewModel : ObservableObject
         OnPropertyChanged(nameof(TransferViewVisibility));
         OnPropertyChanged(nameof(TransferPalletPaneVisibility));
         OnPropertyChanged(nameof(LoadPanelVisibility));
+        OnPropertyChanged(nameof(TransferOperationsPanelVisibility));
         OnPropertyChanged(nameof(SectionTitle));
+        OnPropertyChanged(nameof(SectionSubtitle));
         OnPropertyChanged(nameof(SectionIconGlyph));
+        OnPropertyChanged(nameof(TransferHeaderBadgeVisibility));
+        OnPropertyChanged(nameof(LastCalculationText));
     }
 
     partial void OnShowTableViewChanged(bool value)
     {
         OnPropertyChanged(nameof(TableViewVisibility));
         OnPropertyChanged(nameof(SectionTitle));
+        OnPropertyChanged(nameof(SectionSubtitle));
         OnPropertyChanged(nameof(SectionIconGlyph));
+        OnPropertyChanged(nameof(TransferHeaderBadgeVisibility));
+        OnPropertyChanged(nameof(LastCalculationText));
     }
 
     partial void OnShowExpedicionesViewChanged(bool value)
     {
         OnPropertyChanged(nameof(ExpedicionesViewVisibility));
+        OnPropertyChanged(nameof(ExpedicionPalletPaneVisibility));
         OnPropertyChanged(nameof(LoadPanelVisibility));
+        OnPropertyChanged(nameof(TransferOperationsPanelVisibility));
         OnPropertyChanged(nameof(SectionTitle));
+        OnPropertyChanged(nameof(SectionSubtitle));
         OnPropertyChanged(nameof(SectionIconGlyph));
+        OnPropertyChanged(nameof(TransferHeaderBadgeVisibility));
+        OnPropertyChanged(nameof(LastCalculationText));
     }
 
     partial void OnShowTransitViewChanged(bool value)
     {
         OnPropertyChanged(nameof(TransitViewVisibility));
         OnPropertyChanged(nameof(LoadPanelVisibility));
+        OnPropertyChanged(nameof(TransferOperationsPanelVisibility));
         OnPropertyChanged(nameof(SectionTitle));
+        OnPropertyChanged(nameof(SectionSubtitle));
         OnPropertyChanged(nameof(SectionIconGlyph));
+        OnPropertyChanged(nameof(TransferHeaderBadgeVisibility));
+        OnPropertyChanged(nameof(LastCalculationText));
     }
 
     partial void OnShowWarehouseComparisonViewChanged(bool value)
     {
         OnPropertyChanged(nameof(WarehouseComparisonViewVisibility));
         OnPropertyChanged(nameof(LoadPanelVisibility));
+        OnPropertyChanged(nameof(TransferOperationsPanelVisibility));
         OnPropertyChanged(nameof(AnalysisPeriodControlsVisibility));
         OnPropertyChanged(nameof(HorizonControlsVisibility));
         OnPropertyChanged(nameof(NonComparisonLoadControlsVisibility));
         OnPropertyChanged(nameof(LoadHorizonColumnWidth));
         OnPropertyChanged(nameof(SectionTitle));
+        OnPropertyChanged(nameof(SectionSubtitle));
         OnPropertyChanged(nameof(SectionIconGlyph));
+        OnPropertyChanged(nameof(TransferHeaderBadgeVisibility));
         OnPropertyChanged(nameof(LoadSummaryText));
         OnPropertyChanged(nameof(SelectedWeekLabel));
         OnPropertyChanged(nameof(PeriodSelectorHeader));
+        OnPropertyChanged(nameof(LastCalculationText));
     }
 
     partial void OnShowSimulacionViewChanged(bool value)
     {
         OnPropertyChanged(nameof(SimulacionViewVisibility));
         OnPropertyChanged(nameof(LoadPanelVisibility));
+        OnPropertyChanged(nameof(TransferOperationsPanelVisibility));
         OnPropertyChanged(nameof(SectionTitle));
+        OnPropertyChanged(nameof(SectionSubtitle));
         OnPropertyChanged(nameof(SectionIconGlyph));
+        OnPropertyChanged(nameof(TransferHeaderBadgeVisibility));
+        OnPropertyChanged(nameof(LastCalculationText));
+    }
+
+    partial void OnIsOperationsPanelExpandedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(LoadPanelVisibility));
+        OnPropertyChanged(nameof(TransferOperationsPanelVisibility));
+        OnPropertyChanged(nameof(OperationsPanelToggleText));
+        OnPropertyChanged(nameof(OperationsPanelToggleGlyph));
     }
 
     partial void OnTransferTotalChanged(int value)
     {
         OnPropertyChanged(nameof(TransferSummaryText));
         OnPropertyChanged(nameof(HasTransferRows));
+        OnPropertyChanged(nameof(TransferAllTabCountText));
+        OnPropertyChanged(nameof(TransferToBringTabCountText));
     }
 
-    partial void OnOrderedCountChanged(int value) => OnPropertyChanged(nameof(TransferSummaryText));
+    partial void OnOrderedCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(TransferSummaryText));
+        OnPropertyChanged(nameof(SendSelectedToTransitButtonText));
+    }
 
-    partial void OnTransferPreparedTotalChanged(int value) => OnPropertyChanged(nameof(TransferSummaryText));
+    partial void OnTransferPreparedTotalChanged(int value)
+    {
+        OnPropertyChanged(nameof(TransferSummaryText));
+        OnPropertyChanged(nameof(TransferPreparedTabCountText));
+    }
+
+    partial void OnTransferCriticalTotalChanged(int value) =>
+        OnPropertyChanged(nameof(TransferCriticalTabCountText));
 
     partial void OnTransferVisibleTotalChanged(int value) => OnPropertyChanged(nameof(TransferSummaryText));
 
@@ -1174,6 +1409,9 @@ public partial class MainPageViewModel : ObservableObject
     public partial int ExpedicionesLineCount { get; set; }
 
     [ObservableProperty]
+    public partial int ExpedicionesOrderedCount { get; set; }
+
+    [ObservableProperty]
     public partial int ExpPreparedTotal { get; set; }
 
     [ObservableProperty]
@@ -1184,11 +1422,12 @@ public partial class MainPageViewModel : ObservableObject
         get
         {
             var visibleText = ExpedicionesLineCount == ExpTabTotal
-                ? $"{ExpedicionesLineCount:N0} lineas"
-                : $"{ExpedicionesLineCount:N0} de {ExpTabTotal:N0} lineas";
+                ? $"{ExpedicionesLineCount:N0} líneas visibles"
+                : $"{ExpedicionesLineCount:N0} de {ExpTabTotal:N0} líneas visibles";
+            var orderText = $"{ExpedicionesOrderedCount:N0} de {ExpToTransfer:N0} seleccionadas para traslado";
             return ExpPreparedTotal > 0
-                ? $"{visibleText} | {ExpPreparedTotal:N0} alistado sat."
-                : visibleText;
+                ? $"{visibleText} | {orderText} | {ExpPreparedTotal:N0} alistado sat."
+                : $"{visibleText} | {orderText}";
         }
     }
 
@@ -1198,17 +1437,51 @@ public partial class MainPageViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(ExpedicionesSummaryText));
         OnPropertyChanged(nameof(HasExpediciones));
+        ExportExpedicionesCommand.NotifyCanExecuteChanged();
     }
+
+    partial void OnExpedicionesOrderedCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(ExpedicionesSummaryText));
+        SendSelectedExpedicionesToTransitCommand.NotifyCanExecuteChanged();
+        ClearExpedicionesOrdersCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnExpToTransferChanged(int value) => OnPropertyChanged(nameof(ExpedicionesSummaryText));
 
     partial void OnExpPreparedTotalChanged(int value) => OnPropertyChanged(nameof(ExpedicionesSummaryText));
 
     partial void OnExpTabTotalChanged(int value) => OnPropertyChanged(nameof(ExpedicionesSummaryText));
 
-    partial void OnTransitSearchTextChanged(string value) => FilterTransitRows();
+    partial void OnSelectedTransitStatusTabChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsTransitTabPendientes));
+        OnPropertyChanged(nameof(IsTransitTabConciliados));
+        OnPropertyChanged(nameof(TransitActionsVisibility));
+        FilterTransitRows();
+        ConfirmVisibleTransitCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnTransitPendingCountChanged(int value)
     {
         OnPropertyChanged(nameof(TransitSummaryText));
+        OnPropertyChanged(nameof(TransitPendingTabCountText));
+        OnPropertyChanged(nameof(HasTransitRows));
+    }
+
+    partial void OnTransitReceivedPendingCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(TransitSummaryText));
+        OnPropertyChanged(nameof(TransitReceivedPendingTabCountText));
+        OnPropertyChanged(nameof(TransitHistoryTabCountText));
+        OnPropertyChanged(nameof(HasTransitRows));
+    }
+
+    partial void OnTransitReconciledCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(TransitSummaryText));
+        OnPropertyChanged(nameof(TransitReconciledTabCountText));
+        OnPropertyChanged(nameof(TransitHistoryTabCountText));
         OnPropertyChanged(nameof(HasTransitRows));
     }
 
@@ -1237,11 +1510,18 @@ public partial class MainPageViewModel : ObservableObject
     public IReadOnlyList<ExpedicionRowViewModel> ExpedicionRows
     {
         get => _expedicionRows;
-        private set => SetProperty(ref _expedicionRows, value);
+        private set
+        {
+            if (SetProperty(ref _expedicionRows, value))
+            {
+                EnsureSelectedExpedicionRowIsVisible();
+            }
+        }
     }
 
     private IReadOnlyList<TransitRowViewModel> _transitRows = Array.Empty<TransitRowViewModel>();
     private IReadOnlyList<TransitRowViewModel> _allTransitRows = Array.Empty<TransitRowViewModel>();
+    private bool _allowEmptyTransitTab;
 
     public IReadOnlyList<TransitRowViewModel> TransitRows
     {
@@ -1253,7 +1533,32 @@ public partial class MainPageViewModel : ObservableObject
     public partial string TransitSearchText { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string SelectedTransitStatusTab { get; set; } = "Pendientes";
+
+    public bool IsTransitTabPendientes => SelectedTransitStatusTab == "Pendientes";
+
+    public bool IsTransitTabConciliados => SelectedTransitStatusTab == "Conciliados";
+
+    public Visibility TransitActionsVisibility =>
+        IsTransitTabPendientes ? Visibility.Visible : Visibility.Collapsed;
+
+    public void SetTransitStatusTab(string tab)
+    {
+        _allowEmptyTransitTab = true;
+        SelectedTransitStatusTab = string.Equals(tab, "Recibidos", StringComparison.OrdinalIgnoreCase)
+            ? "Conciliados"
+            : tab;
+        FilterTransitRows();
+    }
+
+    [ObservableProperty]
     public partial int TransitPendingCount { get; set; }
+
+    [ObservableProperty]
+    public partial int TransitReceivedPendingCount { get; set; }
+
+    [ObservableProperty]
+    public partial int TransitReconciledCount { get; set; }
 
     [ObservableProperty]
     public partial int TransitVisibleCount { get; set; }
@@ -1266,10 +1571,18 @@ public partial class MainPageViewModel : ObservableObject
 
     public string TransitPendingQuantityText => TransitPendingQuantity.ToString("N0");
 
-    public string TransitSummaryText =>
-        $"{TransitVisibleCount:N0} de {TransitPendingCount:N0} pallets | {TransitPendingQuantityText} unidades pendientes | {TransitSelectedCount:N0} seleccionados";
+    public string TransitPendingTabCountText => TransitPendingCount.ToString("N0");
 
-    public bool HasTransitRows => TransitRows.Count > 0;
+    public string TransitReceivedPendingTabCountText => TransitReceivedPendingCount.ToString("N0");
+
+    public string TransitReconciledTabCountText => TransitReconciledCount.ToString("N0");
+
+    public string TransitHistoryTabCountText => (TransitReceivedPendingCount + TransitReconciledCount).ToString("N0");
+
+    public string TransitSummaryText =>
+        $"{TransitVisibleCount:N0} visibles | {TransitPendingCount:N0} en tránsito | {TransitHistoryTabCountText} historial | {TransitPendingQuantityText} uds pendientes por recibir | {TransitSelectedCount:N0} seleccionados";
+
+    public bool HasTransitRows => _allTransitRows.Count > 0;
 
     // Per-column filters for the "Tabla completa" view.
     public TextColumnFilter TableArticuloFilter { get; }
@@ -1415,6 +1728,8 @@ public partial class MainPageViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SendSelectedToTransitCommand))]
     [NotifyCanExecuteChangedFor(nameof(ConfirmSelectedTransitCommand))]
     [NotifyCanExecuteChangedFor(nameof(ConfirmVisibleTransitCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SendSelectedExpedicionesToTransitCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ClearExpedicionesOrdersCommand))]
     public partial bool IsBusy { get; set; }
 
     [ObservableProperty]
@@ -1824,6 +2139,18 @@ public partial class MainPageViewModel : ObservableObject
         CurrentSession.LastWarehouseComparison is not null &&
         WarehouseComparisonRows.Count > 0;
 
+    private bool CanExportExpediciones() =>
+        !IsBusy &&
+        CurrentSession.LastExpedicionesAnalysis is not null &&
+        HasMarkedExpedicionRowsForExport();
+
+    private bool CanSendSelectedExpedicionesToTransit() =>
+        !IsBusy &&
+        CurrentSession.LastExpedicionesAnalysis is not null &&
+        _allExpedicionRows.Any(row => row.IsOrdered && row.CanOrder && row.SelectedPallets.Count > 0);
+
+    private bool CanClearExpedicionesOrders() => !IsBusy && ExpedicionesOrderedCount > 0;
+
     private bool CanClearFilters() =>
         !IsBusy &&
         HasActiveFilters;
@@ -1831,6 +2158,10 @@ public partial class MainPageViewModel : ObservableObject
     private bool CanClearWarehouseComparisonFilters() =>
         !IsBusy &&
         HasWarehouseComparisonFilters;
+
+    private bool CanClearWarehouseComparisonComments() =>
+        !IsBusy &&
+        HasWarehouseComparisonComments;
 
     [RelayCommand(CanExecute = nameof(CanLoadInventory))]
     private async Task LoadInventoryAsync()
@@ -2038,10 +2369,13 @@ public partial class MainPageViewModel : ObservableObject
             }
 
             session.LastExpedicionesAnalysis = analysis;
+            session.LastCalculatedAt = DateTimeOffset.Now;
 
             ExpedicionesFileName = file.Name;
             ResetExpedicionFiltersForNewLoad();
             BuildExpedicionesView(analysis);
+            RefreshTransitRows();
+            OnPropertyChanged(nameof(LastCalculationText));
             ShowExpedicionesView = true;
             var inventorySource = fileInventory is not null
                 ? "inventario del mismo archivo"
@@ -2075,7 +2409,10 @@ public partial class MainPageViewModel : ObservableObject
             {
                 var analysis = await BuildExpedicionesAnalysisAsync(session.ExpedicionesWorkbook, inventoryWorkbook);
                 session.LastExpedicionesAnalysis = analysis;
+                session.LastCalculatedAt = DateTimeOffset.Now;
                 BuildExpedicionesView(analysis);
+                RefreshTransitRows();
+                OnPropertyChanged(nameof(LastCalculationText));
             }
             else
             {
@@ -2102,8 +2439,9 @@ public partial class MainPageViewModel : ObservableObject
         // hilo de UI, antes de saltar al hilo de fondo.
         var company = SelectedCompany;
         var satelliteZones = _satelliteZoneStore.GetZonesFor(company);
-        var pendingTransit = _transferTransitStore.GetPendingTransit(company);
         var excludedZones = _inventoryExcludedZoneStore.GetZonesFor(company);
+        var pendingTransit = _transferTransitStore.GetPendingTransit(company);
+        var unavailablePalletKeys = _transferTransitStore.GetOutstandingPalletKeys(company);
 
         return await Task.Run(() =>
             _expedicionesAnalyzer.Analyze(
@@ -2111,7 +2449,8 @@ public partial class MainPageViewModel : ObservableObject
                 inventory.Positions,
                 satelliteZones,
                 pendingTransit,
-                excludedZones));
+                excludedZones,
+                unavailablePalletKeys));
     }
 
     private void ResetExpedicionFiltersForNewLoad()
@@ -2134,7 +2473,10 @@ public partial class MainPageViewModel : ObservableObject
             session.ExpedicionesInventory);
 
         session.LastExpedicionesAnalysis = analysis;
+        session.LastCalculatedAt = DateTimeOffset.Now;
         BuildExpedicionesView(analysis);
+        RefreshTransitRows();
+        OnPropertyChanged(nameof(LastCalculationText));
     }
 
     private void RefreshCatalogDependentViews()
@@ -2159,7 +2501,10 @@ public partial class MainPageViewModel : ObservableObject
         if (analysis is null)
         {
             _allExpedicionRows = Array.Empty<ExpedicionRowViewModel>();
+            _expedicionTabRows = Array.Empty<ExpedicionRowViewModel>();
             ExpedicionRows = Array.Empty<ExpedicionRowViewModel>();
+            ResetSearchState(_expedicionSearch, summary => ExpedicionSearchSummary = summary);
+            SelectedExpedicionRow = null;
             ExpEvaluated = 0;
             ExpCovered = 0;
             ExpToTransfer = 0;
@@ -2167,6 +2512,7 @@ public partial class MainPageViewModel : ObservableObject
             ExpPreparedTotal = 0;
             ExpTabTotal = 0;
             ExpedicionesLineCount = 0;
+            ExpedicionesOrderedCount = 0;
             return;
         }
 
@@ -2187,12 +2533,16 @@ public partial class MainPageViewModel : ObservableObject
             .Select(line => new ExpedicionRowViewModel(
                 line,
                 SatellitePreparedArticleMatcher.IsPrepared(preparedArticles, line.Article, line.Description),
-                TryGetTarimaSizeText(tarimaSizes, line.Article)))
+                TryGetTarimaSizeText(tarimaSizes, line.Article),
+                isOrdered: false,
+                OnExpedicionRowOrderedChanged,
+                OnExpedicionRowQuantityChanged))
             .ToList();
 
         _allExpedicionRows = rows;
         ExpPreparedTotal = rows.Count(row => row.IsSatellitePrepared);
-        ExpToTransfer = rows.Count(row => row.TransferQuantity > 0 && !row.IsSatellitePrepared);
+        ExpToTransfer = rows.Count(row => row.CanOrder);
+        ExpedicionesOrderedCount = rows.Count(row => row.IsOrdered && row.CanOrder);
         FilterExpedicionRows();
     }
 
@@ -2224,7 +2574,8 @@ public partial class MainPageViewModel : ObservableObject
             session.ComparisonForecastWorkbook.AvailableWeeks,
             startPeriod,
             excludedZones,
-            descriptions);
+            descriptions,
+            session.ComparisonForecastWorkbook.Granularity);
     }
 
     private static DateOnly? ResolveSelectableComparisonStartPeriod(
@@ -2276,6 +2627,7 @@ public partial class MainPageViewModel : ObservableObject
         {
             _allWarehouseComparisonRows = Array.Empty<WarehouseComparisonRowViewModel>();
             WarehouseComparisonRows = Array.Empty<WarehouseComparisonRowViewModel>();
+            ResetSearchState(_warehouseComparisonSearch, summary => WarehouseComparisonSearchSummary = summary);
             WarehouseComparisonTotal = 0;
             WarehouseComparisonVisibleTotal = 0;
             WarehouseComparisonNoForecastTotal = 0;
@@ -2301,6 +2653,8 @@ public partial class MainPageViewModel : ObservableObject
         WarehouseComparisonTotal = _allWarehouseComparisonRows.Count;
         WarehouseComparisonNoForecastTotal = _allWarehouseComparisonRows.Count(IsWarehouseComparisonNoSolicita);
         OnPropertyChanged(nameof(WarehouseComparisonCaptionText));
+        OnPropertyChanged(nameof(HasWarehouseComparisonComments));
+        ClearWarehouseComparisonCommentsCommand.NotifyCanExecuteChanged();
         FilterWarehouseComparisonRows();
     }
 
@@ -2319,9 +2673,20 @@ public partial class MainPageViewModel : ObservableObject
 
     private void OnWarehouseComparisonCommentChanged(WarehouseComparisonRowViewModel row)
     {
-        _warehouseComparisonCommentStore.SaveComment(SelectedCompany, row.Article, row.CommentText);
+        _warehouseComparisonCommentStore.SaveComment(
+            SelectedCompany,
+            row.Article,
+            row.HasManualComment ? row.CommentText : string.Empty);
         WarehouseComparisonNoForecastTotal = _allWarehouseComparisonRows.Count(IsWarehouseComparisonNoSolicita);
         OnPropertyChanged(nameof(WarehouseComparisonSummaryText));
+        OnPropertyChanged(nameof(HasWarehouseComparisonComments));
+        ClearWarehouseComparisonCommentsCommand.NotifyCanExecuteChanged();
+
+        // El comentario es parte de lo que se busca: su texto cacheado ya no vale.
+        // Pero no se refiltra por la busqueda mientras el operador escribe: cada
+        // tecla reconstruiria la lista y la caja de comentario perderia el foco.
+        // La fila queda donde esta hasta la proxima busqueda o filtro.
+        _warehouseComparisonSearchIndex.Invalidate(row);
         if (ComparisonComentariosFilter.IsActive)
         {
             FilterWarehouseComparisonRows();
@@ -2351,42 +2716,57 @@ public partial class MainPageViewModel : ObservableObject
             var selectedWeek = SelectedWeek?.Value
                 ?? throw new InvalidOperationException("No hay una semana seleccionada.");
             var horizon = SelectedHorizon?.Value ?? AnalysisHorizon.Weeks(4);
-            var periodKey = selectedWeek.ToString("yyyy-MM-dd");
-
-            // Todo lo que depende de la empresa se resuelve aqui, en el hilo de
-            // UI: leer SelectedCompany dentro del Task.Run permitia analizar con
-            // la empresa cambiada a medias si el usuario la alternaba.
             var company = SelectedCompany;
-            var thresholds = _coverageThresholdStore.GetFor(company);
-            var satelliteZones = _satelliteZoneStore.GetZonesFor(company);
-            var pendingTransit = _transferTransitStore.GetPendingTransit(company, periodKey);
-            var excludedZones = _inventoryExcludedZoneStore.GetZonesFor(company);
-
-            var analysis = await Task.Run(() =>
-                _weeklyForecastAnalyzer.Analyze(
-                    session.InventoryWorkbook!.Positions,
-                    session.ForecastWorkbook!.Entries,
-                    selectedWeek,
-                    horizon,
-                    thresholds,
-                    satelliteZones,
-                    pendingTransit,
-                    excludedZones));
+            var analysis = await BuildTransferAnalysisAsync(session, company, selectedWeek, horizon);
 
             session.SelectedWeek = selectedWeek;
             session.Horizon = horizon;
             session.LastAnalysis = analysis;
+            session.LastCalculatedAt = DateTimeOffset.Now;
             ResetFilters(session);
             RestoreFiltersFromSession(session);
             ClearColumnRanges();
 
             ApplyAnalysis(analysis, preserveSelection: false);
+            RefreshTransitRows();
+            OnPropertyChanged(nameof(LastCalculationText));
             IsLoadPanelExpanded = false;
             ShowMessage(
                 analysis.IsIncompleteHorizon ? "Analisis completado con horizonte parcial" : "Analisis completado",
                 $"{analysis.Articles.Count} articulos evaluados desde {analysis.HorizonStartWeek:dd.MM.yy} hasta {analysis.HorizonEndWeek:dd.MM.yy} | horizonte {analysis.HorizonDescription} ({analysis.AnalyzedWeeks} semanas).",
                 analysis.IsIncompleteHorizon ? InfoBarSeverity.Warning : InfoBarSeverity.Success);
         });
+    }
+
+    private async Task<WeeklyAnalysisResult> BuildTransferAnalysisAsync(
+        CompanyAnalysisSession session,
+        string company,
+        DateOnly selectedWeek,
+        AnalysisHorizon horizon)
+    {
+        var periodKey = selectedWeek.ToString("yyyy-MM-dd");
+
+        // Todo lo que depende de la empresa se resuelve aqui, en el hilo de
+        // UI: leer SelectedCompany dentro del Task.Run permitia analizar con
+        // la empresa cambiada a medias si el usuario la alternaba.
+        var thresholds = _coverageThresholdStore.GetFor(company);
+        var satelliteZones = _satelliteZoneStore.GetZonesFor(company);
+        var excludedZones = _inventoryExcludedZoneStore.GetZonesFor(company);
+        var pendingTransit = _transferTransitStore.GetPendingTransit(company, periodKey);
+        var unavailablePalletKeys = _transferTransitStore.GetOutstandingPalletKeys(company, periodKey);
+
+        return await Task.Run(() =>
+            _weeklyForecastAnalyzer.Analyze(
+                session.InventoryWorkbook!.Positions,
+                session.ForecastWorkbook!.Entries,
+                selectedWeek,
+                horizon,
+                thresholds,
+                satelliteZones,
+                pendingTransit,
+                excludedZones,
+                unavailablePalletKeys,
+                session.ForecastWorkbook!.AvailableWeeks));
     }
 
     private async Task AnalyzeWarehouseComparisonAsync()
@@ -2404,7 +2784,9 @@ public partial class MainPageViewModel : ObservableObject
 
             session.ComparisonSelectedPeriod = comparisonStartPeriod;
             session.LastWarehouseComparison = comparison;
+            session.LastCalculatedAt = DateTimeOffset.Now;
             BuildWarehouseComparisonView(comparison);
+            OnPropertyChanged(nameof(LastCalculationText));
             IsLoadPanelExpanded = false;
             ShowMessage(
                 "Comparativa actualizada",
@@ -2448,6 +2830,7 @@ public partial class MainPageViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanExportWarehouseComparison))]
     private async Task ExportWarehouseComparisonAsync()
     {
+        FlushPendingSearches();
         var comparison = CurrentSession.LastWarehouseComparison;
         if (comparison is null || WarehouseComparisonRows.Count == 0)
         {
@@ -2488,11 +2871,49 @@ public partial class MainPageViewModel : ObservableObject
         });
     }
 
+    [RelayCommand(CanExecute = nameof(CanExportExpediciones))]
+    private async Task ExportExpedicionesAsync()
+    {
+        var markedRows = GetMarkedExpedicionRowsForExport();
+        if (markedRows.Length == 0)
+        {
+            return;
+        }
+
+        var suggestedFileName = $"{SelectedCompany}-expediciones-marcadas-{DateTime.Today:yyyyMMdd}";
+        var destination = await _workbookFileDialogService.PickExportFileAsync(suggestedFileName);
+        if (destination is null)
+        {
+            return;
+        }
+
+        await ExecuteBusyActionAsync(async () =>
+        {
+            var company = SelectedCompany;
+            var exportRows = markedRows.Select(ToExpedicionesExportRow).ToArray();
+            var exportedPallets = exportRows.Sum(row => row.Pallets.Count);
+            var bytes = await Task.Run(() => _analysisWorkbookExporter.ExportExpediciones(company, exportRows));
+            await FileIO.WriteBytesAsync(destination, bytes);
+            ShowMessage(
+                "Expediciones exportadas",
+                $"Se descargaron {markedRows.Length:N0} lineas marcadas y {exportedPallets:N0} pallets en {destination.Name}.",
+                InfoBarSeverity.Success);
+        });
+    }
+
     [RelayCommand(CanExecute = nameof(CanExportRequisition))]
     private async Task ExportRequisitionAsync()
     {
         var analysis = CurrentSession.LastAnalysis;
         if (analysis is null)
+        {
+            return;
+        }
+
+        var selectedRows = _allTransferRows
+            .Where(row => row.IsOrdered && row.CanOrder && row.SelectedPallets.Count > 0)
+            .ToArray();
+        if (selectedRows.Length == 0)
         {
             return;
         }
@@ -2506,15 +2927,14 @@ public partial class MainPageViewModel : ObservableObject
 
         await ExecuteBusyActionAsync(async () =>
         {
-            var ordered = _allTransferRows
-                .Where(row => row.IsOrdered && row.CanOrder)
+            var ordered = selectedRows
                 .Select(row => row.Article)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var descriptions = CurrentDescriptions();
             var company = SelectedCompany;
             var preparedArticles = _satellitePreparedArticleStore.GetArticleSetFor(company);
             var tarimaSizes = _tarimaSizeStore.GetMapFor(company);
-            var selectedPallets = _allTransferRows
+            var selectedPallets = selectedRows
                 .ToDictionary(
                     row => InventoryZoneClassifier.NormalizeArticleKey(row.Article),
                     row => (IReadOnlyList<PalletInventoryDetail>)row.SelectedPallets,
@@ -2537,7 +2957,25 @@ public partial class MainPageViewModel : ObservableObject
         });
     }
 
-    private bool CanExportRequisition() => !IsBusy && TransferTotal > 0;
+    private bool CanExportRequisition() =>
+        !IsBusy &&
+        CurrentSession.LastAnalysis is not null &&
+        _allTransferRows.Any(row => row.IsOrdered && row.CanOrder && row.SelectedPallets.Count > 0);
+
+    private static ExpedicionesExportRow ToExpedicionesExportRow(ExpedicionRowViewModel row) =>
+        new(
+            row.Article,
+            row.Description,
+            row.TarimaSizeText,
+            row.SelectedPallets);
+
+    private bool HasMarkedExpedicionRowsForExport() =>
+        _allExpedicionRows.Any(row => row.IsOrdered && row.CanOrder && row.SelectedPallets.Count > 0);
+
+    private ExpedicionRowViewModel[] GetMarkedExpedicionRowsForExport() =>
+        _allExpedicionRows
+            .Where(row => row.IsOrdered && row.CanOrder && row.SelectedPallets.Count > 0)
+            .ToArray();
 
     [RelayCommand(CanExecute = nameof(CanClearOrders))]
     private void ClearOrders()
@@ -2563,9 +3001,32 @@ public partial class MainPageViewModel : ObservableObject
 
         OrderedCount = 0;
         SendSelectedToTransitCommand.NotifyCanExecuteChanged();
+        ExportRequisitionCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanClearOrders() => !IsBusy && OrderedCount > 0;
+
+    [RelayCommand(CanExecute = nameof(CanClearExpedicionesOrders))]
+    private void ClearExpedicionesOrders()
+    {
+        _isBulkExpedicionOrderUpdate = true;
+        try
+        {
+            foreach (var row in _allExpedicionRows.Where(row => row.CanOrder))
+            {
+                row.IsOrdered = false;
+            }
+        }
+        finally
+        {
+            _isBulkExpedicionOrderUpdate = false;
+        }
+
+        ExpedicionesOrderedCount = 0;
+        SendSelectedExpedicionesToTransitCommand.NotifyCanExecuteChanged();
+        ClearExpedicionesOrdersCommand.NotifyCanExecuteChanged();
+        ExportExpedicionesCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand(CanExecute = nameof(CanSendSelectedToTransit))]
     private async Task SendSelectedToTransitAsync()
@@ -2624,14 +3085,21 @@ public partial class MainPageViewModel : ObservableObject
 
         OrderedCount = _allTransferRows.Count(row => row.IsOrdered && row.CanOrder);
         ClearOrdersCommand.NotifyCanExecuteChanged();
+        ExportRequisitionCommand.NotifyCanExecuteChanged();
         await RefreshAfterTransitChangeAsync();
 
         ShowMessage(
-            result.Added > 0 ? "Pallets enviados a transito" : "Sin pallets nuevos",
-            result.Skipped > 0
+            result.Added > 0 && result.Saved ? "Pallets enviados a transito" :
+            result.Added > 0 ? "Transito pendiente sin guardar" :
+            "Sin pallets nuevos",
+            !result.Saved && result.Added > 0
+                ? $"{result.Added:N0} pallets quedaron en memoria, pero no se pudo guardar transfer-transit.json. Revise permisos o si el archivo esta bloqueado."
+                : result.Skipped > 0
                 ? $"{result.Added:N0} pallets agregados; {result.Skipped:N0} ya estaban en transito o no eran validos."
                 : $"{result.Added:N0} pallets agregados al modulo Transito.",
-            result.Added > 0 ? InfoBarSeverity.Success : InfoBarSeverity.Informational);
+            result.Added > 0 && result.Saved ? InfoBarSeverity.Success :
+            result.Added > 0 ? InfoBarSeverity.Warning :
+            InfoBarSeverity.Informational);
     }
 
     private bool CanSendSelectedToTransit() =>
@@ -2639,33 +3107,114 @@ public partial class MainPageViewModel : ObservableObject
         CurrentSession.LastAnalysis is not null &&
         _allTransferRows.Any(row => row.IsOrdered && row.CanOrder && row.SelectedPallets.Count > 0);
 
+    [RelayCommand(CanExecute = nameof(CanSendSelectedExpedicionesToTransit))]
+    private async Task SendSelectedExpedicionesToTransitAsync()
+    {
+        var selectedRows = _allExpedicionRows
+            .Where(row => row.IsOrdered && row.CanOrder && row.SelectedPallets.Count > 0)
+            .ToArray();
+        if (selectedRows.Length == 0)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.Now;
+        var periodKey = CurrentPeriodKey;
+        var items = selectedRows.SelectMany(row => row.SelectedPallets.Select(pallet => new TransferTransitItem(
+            string.Empty,
+            SelectedCompany,
+            periodKey,
+            row.Article,
+            row.Description,
+            pallet.Pallet,
+            pallet.Quantity,
+            pallet.StorageZone,
+            pallet.Location,
+            pallet.ValidationDate,
+            row.TarimaSizeText,
+            StorageOriginClassifier.Resolve(pallet.StorageZone),
+            now)));
+
+        var result = _transferTransitStore.AddPending(items);
+        _isBulkExpedicionOrderUpdate = true;
+        try
+        {
+            foreach (var row in selectedRows)
+            {
+                row.IsOrdered = false;
+            }
+        }
+        finally
+        {
+            _isBulkExpedicionOrderUpdate = false;
+        }
+
+        ExpedicionesOrderedCount = _allExpedicionRows.Count(row => row.IsOrdered && row.CanOrder);
+        ExportExpedicionesCommand.NotifyCanExecuteChanged();
+        await RefreshAfterTransitChangeAsync();
+
+        ShowMessage(
+            result.Added > 0 && result.Saved ? "Expediciones enviadas a transito" :
+            result.Added > 0 ? "Transito pendiente sin guardar" :
+            "Sin pallets nuevos",
+            !result.Saved && result.Added > 0
+                ? $"{result.Added:N0} pallets quedaron en memoria, pero no se pudo guardar transfer-transit.json. Revise permisos o si el archivo esta bloqueado."
+                : result.Skipped > 0
+                ? $"{result.Added:N0} pallets agregados; {result.Skipped:N0} ya estaban en transito o no eran validos."
+                : $"{result.Added:N0} pallets agregados al modulo Transito desde Expediciones.",
+            result.Added > 0 && result.Saved ? InfoBarSeverity.Success :
+            result.Added > 0 ? InfoBarSeverity.Warning :
+            InfoBarSeverity.Informational);
+    }
+
     [RelayCommand(CanExecute = nameof(CanConfirmSelectedTransit))]
     private async Task ConfirmSelectedTransitAsync()
     {
-        var ids = _allTransitRows.Where(row => row.IsSelected).Select(row => row.Id).ToArray();
+        var ids = _allTransitRows
+            .Where(row => row.IsSelected && row.CanConfirmReceived)
+            .Select(row => row.Id)
+            .ToArray();
         await ConfirmTransitIdsAsync(ids, "Pallets recibidos");
     }
 
-    private bool CanConfirmSelectedTransit() => !IsBusy && TransitSelectedCount > 0;
+    private bool CanConfirmSelectedTransit() =>
+        !IsBusy &&
+        _allTransitRows.Any(row => row.IsSelected && row.CanConfirmReceived);
 
     [RelayCommand(CanExecute = nameof(CanConfirmVisibleTransit))]
     private async Task ConfirmVisibleTransitAsync()
     {
-        var ids = TransitRows.Select(row => row.Id).ToArray();
+        FlushPendingSearches();
+        var ids = TransitRows
+            .Where(row => row.CanConfirmReceived)
+            .Select(row => row.Id)
+            .ToArray();
         await ConfirmTransitIdsAsync(ids, "Transito visible recibido");
     }
 
-    private bool CanConfirmVisibleTransit() => !IsBusy && TransitVisibleCount > 0;
+    private bool CanConfirmVisibleTransit() =>
+        !IsBusy &&
+        TransitRows.Any(row => row.CanConfirmReceived);
 
     public async Task ConfirmTransitPalletAsync(TransitRowViewModel row)
     {
         ArgumentNullException.ThrowIfNull(row);
+        if (!row.CanConfirmReceived)
+        {
+            return;
+        }
+
         await ConfirmTransitIdsAsync([row.Id], "Pallet recibido");
     }
 
     public async Task ConfirmTransitArticleAsync(TransitRowViewModel row)
     {
         ArgumentNullException.ThrowIfNull(row);
+        if (!row.CanConfirmReceived)
+        {
+            return;
+        }
+
         var received = _transferTransitStore.MarkArticleReceived(SelectedCompany, row.Article);
         await RefreshAfterTransitChangeAsync();
         ShowMessage(
@@ -2688,6 +3237,10 @@ public partial class MainPageViewModel : ObservableObject
     {
         RefreshTransitRows();
         SendSelectedToTransitCommand.NotifyCanExecuteChanged();
+        ExportRequisitionCommand.NotifyCanExecuteChanged();
+        SendSelectedExpedicionesToTransitCommand.NotifyCanExecuteChanged();
+        ExportExpedicionesCommand.NotifyCanExecuteChanged();
+        ClearExpedicionesOrdersCommand.NotifyCanExecuteChanged();
         ConfirmSelectedTransitCommand.NotifyCanExecuteChanged();
         ConfirmVisibleTransitCommand.NotifyCanExecuteChanged();
 
@@ -2764,7 +3317,9 @@ public partial class MainPageViewModel : ObservableObject
         if (analysisResult is null)
         {
             _allTransferRows = Array.Empty<TransferRowViewModel>();
+            _transferTabRows = Array.Empty<TransferRowViewModel>();
             TransferRows = Array.Empty<TransferRowViewModel>();
+            ResetSearchState(_transferSearch, summary => TransferSearchSummary = summary);
             FunnelEvaluated = 0;
             FunnelCovered = 0;
             FunnelToTransfer = 0;
@@ -2772,6 +3327,7 @@ public partial class MainPageViewModel : ObservableObject
             TransferTotal = 0;
             OrderedCount = 0;
             TransferPreparedTotal = 0;
+            TransferCriticalTotal = 0;
             TransferVisibleTotal = 0;
             TransferTabTotal = 0;
             return;
@@ -2818,6 +3374,7 @@ public partial class MainPageViewModel : ObservableObject
 
         _allTransferRows = rows;
         TransferPreparedTotal = rows.Count(row => row.IsSatellitePrepared);
+        TransferCriticalTotal = rows.Count(row => row.Status == CoverageStatus.Critical);
         TransferTotal = rows.Count(row => row.CanOrder);
         FunnelToTransfer = TransferTotal;
         OrderedCount = rows.Count(row => row.IsOrdered && row.CanOrder);
@@ -2845,6 +3402,7 @@ public partial class MainPageViewModel : ObservableObject
         PersistOrderedMark(row);
         OrderedCount = _allTransferRows.Count(transferRow => transferRow.IsOrdered && transferRow.CanOrder);
         SendSelectedToTransitCommand.NotifyCanExecuteChanged();
+        ExportRequisitionCommand.NotifyCanExecuteChanged();
     }
 
     private void OnTransferRowQuantityChanged(TransferRowViewModel row)
@@ -2856,8 +3414,36 @@ public partial class MainPageViewModel : ObservableObject
 
         OrderedCount = _allTransferRows.Count(transferRow => transferRow.IsOrdered && transferRow.CanOrder);
         TransferVisibleTotal = TransferRows.Count;
-        RefreshTransferFilterOptions(TransferRows);
+
+        // De la pestana, no de lo visible: si no, buscar algo y cambiar un pallet
+        // dejaba las listas de los filtros Excel recortadas a ese resultado.
+        RefreshTransferFilterOptions(_transferTabRows);
         SendSelectedToTransitCommand.NotifyCanExecuteChanged();
+        ExportRequisitionCommand.NotifyCanExecuteChanged();
+    }
+
+    private void OnExpedicionRowOrderedChanged(ExpedicionRowViewModel row)
+    {
+        if (!row.CanOrder || _isBulkExpedicionOrderUpdate)
+        {
+            return;
+        }
+
+        ExpedicionesOrderedCount = _allExpedicionRows.Count(expedicionRow => expedicionRow.IsOrdered && expedicionRow.CanOrder);
+        SendSelectedExpedicionesToTransitCommand.NotifyCanExecuteChanged();
+        ClearExpedicionesOrdersCommand.NotifyCanExecuteChanged();
+        ExportExpedicionesCommand.NotifyCanExecuteChanged();
+    }
+
+    private void OnExpedicionRowQuantityChanged(ExpedicionRowViewModel row)
+    {
+        ExpedicionesOrderedCount = _allExpedicionRows.Count(expedicionRow => expedicionRow.IsOrdered && expedicionRow.CanOrder);
+        ExpToTransfer = _allExpedicionRows.Count(expedicionRow => expedicionRow.CanOrder);
+        ExpedicionesLineCount = ExpedicionRows.Count;
+        RefreshExpedicionFilterOptions(_expedicionTabRows);
+        SendSelectedExpedicionesToTransitCommand.NotifyCanExecuteChanged();
+        ClearExpedicionesOrdersCommand.NotifyCanExecuteChanged();
+        ExportExpedicionesCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -2915,15 +3501,25 @@ public partial class MainPageViewModel : ObservableObject
         var savedTarimaSizes = _tarimaSizeStore.GetItemsFor(company);
         OnPropertyChanged(nameof(PreparedArticlesCatalogText));
         OnPropertyChanged(nameof(TarimaSizesCatalogText));
-        var willReanalyze = CanAnalyze();
+        var refreshedAnalyses = false;
+        var refreshFailed = false;
 
-        if (willReanalyze)
+        await ExecuteBusyActionAsync(async () =>
         {
-            await AnalyzeAsync();
-        }
-        else
+            try
+            {
+                refreshedAnalyses = await RefreshAnalysesAfterSettingsSavedAsync(company);
+            }
+            catch
+            {
+                refreshFailed = true;
+                throw;
+            }
+        });
+
+        if (refreshFailed)
         {
-            RefreshCatalogDependentViews();
+            return;
         }
 
         var summary = $"{company}: rojo si cobertura < {edit.Thresholds.RedPercent:0}% (o sin stock), verde si >= {edit.Thresholds.HealthyPercent:0}%, {savedZones.Count} zonas externas, {savedIgnoredZones.Count} zonas excluidas, {savedPreparedArticles.Count} alistados sat., {savedTarimaSizes.Count} tamanos.";
@@ -2934,10 +3530,80 @@ public partial class MainPageViewModel : ObservableObject
                 summary + " Sin zonas externas: en el analisis todo el inventario se trataria como externo.",
                 InfoBarSeverity.Warning);
         }
-        else if (!willReanalyze)
+        else if (refreshedAnalyses)
+        {
+            ShowMessage("Ajustes guardados", summary + " Tablas actualizadas con los archivos cargados.", InfoBarSeverity.Success);
+        }
+        else
         {
             ShowMessage("Ajustes guardados", summary + " Se aplicaran al ejecutar Analizar.", InfoBarSeverity.Success);
         }
+    }
+
+    private async Task<bool> RefreshAnalysesAfterSettingsSavedAsync(string company)
+    {
+        var session = CurrentSession;
+        var refreshed = false;
+        var rebuilt = false;
+
+        if (session.InventoryWorkbook is not null &&
+            session.ForecastWorkbook is not null &&
+            session.SelectedWeek is DateOnly transferWeek)
+        {
+            var analysis = await BuildTransferAnalysisAsync(session, company, transferWeek, session.Horizon);
+            session.LastAnalysis = analysis;
+            session.LastCalculatedAt = DateTimeOffset.Now;
+            ApplyAnalysis(analysis);
+            refreshed = true;
+        }
+        else if (session.LastAnalysis is not null)
+        {
+            BuildTransferView(session.LastAnalysis);
+            rebuilt = true;
+        }
+
+        if (session.ExpedicionesWorkbook is not null && session.ExpedicionesInventory is not null)
+        {
+            var analysis = await BuildExpedicionesAnalysisAsync(
+                session.ExpedicionesWorkbook,
+                session.ExpedicionesInventory);
+            session.LastExpedicionesAnalysis = analysis;
+            session.LastCalculatedAt = DateTimeOffset.Now;
+            BuildExpedicionesView(analysis);
+            rebuilt = true;
+        }
+        else if (session.LastExpedicionesAnalysis is not null)
+        {
+            BuildExpedicionesView(session.LastExpedicionesAnalysis);
+            rebuilt = true;
+        }
+
+        if (session.ComparisonInventoryWorkbook is not null &&
+            session.ComparisonForecastWorkbook is not null &&
+            session.ComparisonSelectedPeriod is DateOnly comparisonStartPeriod)
+        {
+            var excludedZones = _inventoryExcludedZoneStore.GetZonesFor(company);
+            var descriptions = CurrentComparisonDescriptions(session);
+            var comparison = await Task.Run(() =>
+                AnalyzeWarehouseComparison(session, comparisonStartPeriod, excludedZones, descriptions));
+            session.LastWarehouseComparison = comparison;
+            session.LastCalculatedAt = DateTimeOffset.Now;
+            BuildWarehouseComparisonView(comparison);
+            refreshed = true;
+        }
+        else if (session.LastWarehouseComparison is not null)
+        {
+            BuildWarehouseComparisonView(session.LastWarehouseComparison);
+            rebuilt = true;
+        }
+
+        if (refreshed || rebuilt)
+        {
+            RefreshTransitRows();
+            OnPropertyChanged(nameof(LastCalculationText));
+        }
+
+        return refreshed || rebuilt;
     }
 
     private bool CanManageSettings() => !IsBusy;
@@ -2957,6 +3623,26 @@ public partial class MainPageViewModel : ObservableObject
     private void ClearWarehouseComparisonFilters()
     {
         ResetWarehouseComparisonFiltersForNewLoad();
+        WarehouseComparisonSearchText = string.Empty;
+        FilterWarehouseComparisonRows();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanClearWarehouseComparisonComments))]
+    private void ClearWarehouseComparisonComments()
+    {
+        _warehouseComparisonCommentStore.ClearCommentsFor(SelectedCompany);
+        foreach (var row in _allWarehouseComparisonRows)
+        {
+            row.ClearManualCommentWithoutSaving();
+        }
+
+        // ClearManualCommentWithoutSaving no avisa fila por fila.
+        _warehouseComparisonSearchIndex.InvalidateAll();
+
+        WarehouseComparisonNoForecastTotal = _allWarehouseComparisonRows.Count(IsWarehouseComparisonNoSolicita);
+        OnPropertyChanged(nameof(WarehouseComparisonSummaryText));
+        OnPropertyChanged(nameof(HasWarehouseComparisonComments));
+        ClearWarehouseComparisonCommentsCommand.NotifyCanExecuteChanged();
         FilterWarehouseComparisonRows();
     }
 
@@ -3023,10 +3709,13 @@ public partial class MainPageViewModel : ObservableObject
             AnalyzeCommand.NotifyCanExecuteChanged();
             ExportCommand.NotifyCanExecuteChanged();
             ExportWarehouseComparisonCommand.NotifyCanExecuteChanged();
+            ExportExpedicionesCommand.NotifyCanExecuteChanged();
             ClearWarehouseComparisonFiltersCommand.NotifyCanExecuteChanged();
             ExportRequisitionCommand.NotifyCanExecuteChanged();
             ClearOrdersCommand.NotifyCanExecuteChanged();
             SendSelectedToTransitCommand.NotifyCanExecuteChanged();
+            SendSelectedExpedicionesToTransitCommand.NotifyCanExecuteChanged();
+            ClearExpedicionesOrdersCommand.NotifyCanExecuteChanged();
             ConfirmSelectedTransitCommand.NotifyCanExecuteChanged();
             ConfirmVisibleTransitCommand.NotifyCanExecuteChanged();
         }
@@ -3058,8 +3747,13 @@ public partial class MainPageViewModel : ObservableObject
         AnalyzeCommand.NotifyCanExecuteChanged();
         ExportCommand.NotifyCanExecuteChanged();
         ExportWarehouseComparisonCommand.NotifyCanExecuteChanged();
+        ExportRequisitionCommand.NotifyCanExecuteChanged();
+        ExportExpedicionesCommand.NotifyCanExecuteChanged();
         ClearFiltersCommand.NotifyCanExecuteChanged();
+        SendSelectedExpedicionesToTransitCommand.NotifyCanExecuteChanged();
+        ClearExpedicionesOrdersCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(LoadSummaryText));
+        OnPropertyChanged(nameof(LastCalculationText));
         OnPropertyChanged(nameof(LoadPanelVisibility));
     }
 
@@ -3211,11 +3905,27 @@ public partial class MainPageViewModel : ObservableObject
     private void RefreshTableFilterOptions(IReadOnlyList<ArticleResultRowViewModel> rows) =>
         _tableColumns.RefreshOptions(rows);
 
+    private string? _analysisSearchText;
+    private SearchQuery _analysisSearchQuery = SearchQuery.Empty;
+
+    /// <summary>La consulta del buscador de Analisis, interpretada una vez por texto y no una vez por fila.</summary>
+    private SearchQuery AnalysisSearchQuery
+    {
+        get
+        {
+            if (!string.Equals(_analysisSearchText, SearchText, StringComparison.Ordinal))
+            {
+                _analysisSearchText = SearchText;
+                _analysisSearchQuery = SearchQuery.Parse(SearchText);
+            }
+
+            return _analysisSearchQuery;
+        }
+    }
+
     private bool MatchesColumnFilters(ArticleResultRowViewModel row)
     {
-        var search = SearchText?.Trim();
-        if (!string.IsNullOrEmpty(search) &&
-            !row.ArticleDescriptionText.Contains(search, StringComparison.OrdinalIgnoreCase))
+        if (!AnalysisSearchQuery.MatchesRaw(row.ArticleDescriptionText))
         {
             return false;
         }

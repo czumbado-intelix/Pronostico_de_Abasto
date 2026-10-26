@@ -21,6 +21,8 @@ internal sealed class CompanyAnalysisSession
 
     public WeeklyAnalysisResult? LastAnalysis { get; set; }
 
+    public DateTimeOffset? LastCalculatedAt { get; set; }
+
     public string? ComparisonInventoryFileName { get; set; }
 
     public string? ComparisonForecastFileName { get; set; }

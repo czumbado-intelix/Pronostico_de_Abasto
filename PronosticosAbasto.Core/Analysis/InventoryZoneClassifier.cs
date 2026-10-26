@@ -10,7 +10,8 @@ public sealed record ArticleInventorySummary(
     decimal TotalQuantity,
     IReadOnlyList<ZoneInventoryDetail> Zones,
     IReadOnlyList<ZoneInventoryDetail> SatelliteZones,
-    IReadOnlyList<PalletInventoryDetail> SatellitePallets);
+    IReadOnlyList<PalletInventoryDetail> SatellitePallets,
+    IReadOnlyList<PalletInventoryDetail> PrincipalPallets);
 
 /// <summary>
 /// Groups inventory positions by article and classifies each storage zone as
@@ -69,32 +70,8 @@ public static class InventoryZoneClassifier
                         .ToArray();
 
                     var satelliteZoneDetails = zones.Where(zone => zone.IsSatellite).ToArray();
-                    var satellitePallets = classified
-                        .Where(position => position.IsSatellite && position.Position.Quantity > 0)
-                        .GroupBy(
-                            position => new
-                            {
-                                Pallet = NormalizePalletDisplayName(position.Position.Pallet),
-                                Zone = NormalizeZoneKey(position.StorageZone),
-                                Location = NormalizeLocationDisplayName(position.Position.Location),
-                                ValidationDate = position.Position.ValidationDate,
-                                PalletType = NormalizePalletType(position.Position.PalletType),
-                            })
-                        .Select(palletGroup =>
-                        {
-                            var first = palletGroup.First();
-                            return new PalletInventoryDetail(
-                                palletGroup.Key.Pallet,
-                                first.StorageZone,
-                                palletGroup.Sum(position => position.Position.Quantity),
-                                palletGroup.Key.ValidationDate,
-                                palletGroup.Key.PalletType,
-                                palletGroup.Key.Location);
-                        })
-                        .OrderBy(pallet => pallet.ValidationDate ?? DateOnly.MaxValue)
-                        .ThenBy(pallet => pallet.Pallet, StringComparer.OrdinalIgnoreCase)
-                        .ThenBy(pallet => pallet.StorageZone, StringComparer.OrdinalIgnoreCase)
-                        .ToArray();
+                    var satellitePallets = BuildPalletDetails(classified.Where(position => position.IsSatellite));
+                    var principalPallets = BuildPalletDetails(classified.Where(position => !position.IsSatellite));
 
                     return new ArticleInventorySummary(
                         group.First().Article.Trim(),
@@ -103,10 +80,39 @@ public static class InventoryZoneClassifier
                         group.Sum(position => position.Quantity),
                         zones,
                         satelliteZoneDetails,
-                        satellitePallets);
+                        satellitePallets,
+                        principalPallets);
                 },
                 StringComparer.OrdinalIgnoreCase);
     }
+
+    private static IReadOnlyList<PalletInventoryDetail> BuildPalletDetails(IEnumerable<ClassifiedInventoryPosition> positions) =>
+        positions
+            .Where(position => position.Position.Quantity > 0)
+            .GroupBy(
+                position => new
+                {
+                    Pallet = NormalizePalletDisplayName(position.Position.Pallet),
+                    Zone = NormalizeZoneKey(position.StorageZone),
+                    Location = NormalizeLocationDisplayName(position.Position.Location),
+                    ValidationDate = position.Position.ValidationDate,
+                    PalletType = NormalizePalletType(position.Position.PalletType),
+                })
+            .Select(palletGroup =>
+            {
+                var first = palletGroup.First();
+                return new PalletInventoryDetail(
+                    palletGroup.Key.Pallet,
+                    first.StorageZone,
+                    palletGroup.Sum(position => position.Position.Quantity),
+                    palletGroup.Key.ValidationDate,
+                    palletGroup.Key.PalletType,
+                    palletGroup.Key.Location);
+            })
+            .OrderBy(pallet => pallet.ValidationDate ?? DateOnly.MaxValue)
+            .ThenBy(pallet => pallet.Pallet, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(pallet => pallet.StorageZone, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
     private static HashSet<string> BuildSatelliteZoneSet(IEnumerable<string>? satelliteZones) =>
         BuildStorageZoneSet(satelliteZones);

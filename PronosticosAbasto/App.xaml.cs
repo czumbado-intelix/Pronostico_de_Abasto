@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
@@ -58,6 +58,8 @@ public partial class App : Application
     {
         InitializeComponent();
         UnhandledException += OnAppUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
     }
 
     /// <summary>Ruta del log de errores no controlados.</summary>
@@ -70,6 +72,21 @@ public partial class App : Application
     /// <summary>Evita una cascada de dialogos si la misma falla se repite en rafaga.</summary>
     private bool _isReportingUnhandledException;
 
+    private static void LogException(string source, string message, Exception? ex)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(CrashLogPath)!);
+            System.IO.File.AppendAllText(
+                CrashLogPath,
+                $"=== {System.DateTime.Now:yyyy-MM-dd HH:mm:ss} [{source}] ==={System.Environment.NewLine}{message}{System.Environment.NewLine}{ex}{System.Environment.NewLine}{System.Environment.NewLine}");
+        }
+        catch
+        {
+            // Never let logging itself crash the app.
+        }
+    }
+
     /// <summary>
     /// Ultimo recurso: registra la excepcion y mantiene la app viva en lugar de
     /// terminar, pero <b>avisando al operador</b>. Tragarla en silencio dejaba la
@@ -78,20 +95,21 @@ public partial class App : Application
     /// </summary>
     private void OnAppUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
-        try
-        {
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(CrashLogPath)!);
-            System.IO.File.AppendAllText(
-                CrashLogPath,
-                $"=== {System.DateTime.Now:yyyy-MM-dd HH:mm:ss} ==={System.Environment.NewLine}{e.Message}{System.Environment.NewLine}{e.Exception}{System.Environment.NewLine}{System.Environment.NewLine}");
-        }
-        catch
-        {
-            // Never let logging itself crash the app.
-        }
-
+        LogException("Xaml.UnhandledException", e.Message, e.Exception);
         e.Handled = true;
         NotifyUnhandledException(e.Message);
+    }
+
+    private void OnDomainUnhandledException(object sender, System.UnhandledExceptionEventArgs e)
+    {
+        var ex = e.ExceptionObject as Exception;
+        LogException("AppDomain.UnhandledException", ex?.Message ?? e.ExceptionObject?.ToString() ?? "Unknown", ex);
+    }
+
+    private void OnUnobservedTaskException(object? sender, System.Threading.Tasks.UnobservedTaskExceptionEventArgs e)
+    {
+        LogException("TaskScheduler.UnobservedTaskException", e.Exception.Message, e.Exception);
+        e.SetObserved();
     }
 
     private void NotifyUnhandledException(string message)

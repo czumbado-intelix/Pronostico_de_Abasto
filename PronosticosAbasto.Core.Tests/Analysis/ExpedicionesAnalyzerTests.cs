@@ -66,7 +66,7 @@ public class ExpedicionesAnalyzerTests
     }
 
     [Fact]
-    public void Pending_transit_is_added_to_expedition_transfer_and_pallets_are_fifo()
+    public void Pending_transit_reduces_the_new_expedition_transfer()
     {
         var inventory = new[]
         {
@@ -87,23 +87,40 @@ public class ExpedicionesAnalyzerTests
 
         var line = Assert.Single(result.Lines);
         Assert.Equal(20, line.PendingTransitQuantity);
-        Assert.Equal(40, line.CalculatedTransferNeedQuantity);
-        Assert.Equal(60, line.TransferSuggestionQuantity);
-        Assert.Equal(40, line.NewTransferSuggestionQuantity);
-        Assert.Equal(20, line.PalletRoundUpSurplusQuantity);
+        Assert.Equal(0, line.CalculatedTransferNeedQuantity);
+        Assert.Equal(0, line.TransferSuggestionQuantity);
+        Assert.Equal(0, line.NewTransferSuggestionQuantity);
+        Assert.Equal(0, line.PalletRoundUpSurplusQuantity);
         Assert.Equal(0, line.RemainingShortageAfterTransfer);
-        Assert.Collection(
-            line.SuggestedPallets,
-            pallet =>
-            {
-                Assert.Equal("PAL-1", pallet.Pallet);
-                Assert.Equal(30, pallet.Quantity);
-            },
-            pallet =>
-            {
-                Assert.Equal("PAL-2", pallet.Pallet);
-                Assert.Equal(30, pallet.Quantity);
-            });
+        Assert.Empty(line.SuggestedPallets);
+    }
+
+    [Fact]
+    public void Unavailable_transit_pallets_are_not_reused_for_expeditions()
+    {
+        var inventory = new[]
+        {
+            new InventoryPosition("A", "ZP", 0),
+            new InventoryPosition("A", "ZA47", 30, "A", "PAL-TRANSIT", new DateOnly(2026, 1, 1), "Disponible"),
+            new InventoryPosition("A", "ZA47", 40, "A", "PAL-OK", new DateOnly(2026, 2, 1), "Disponible"),
+        };
+        var unavailablePalletKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            PalletIdentity.BuildArticlePallet("A", "PAL-TRANSIT"),
+        };
+
+        var result = new ExpedicionesAnalyzer().Analyze(
+            [new ExpeditionLine("A", "A", 30)],
+            inventory,
+            SatelliteZones,
+            pendingTransitQuantities: null,
+            ignoredStorageZones: null,
+            unavailablePalletKeys);
+
+        var line = Assert.Single(result.Lines);
+        Assert.Equal(40, line.SatelliteInventoryQuantity);
+        Assert.Equal("PAL-OK", Assert.Single(line.SuggestedPallets).Pallet);
+        Assert.DoesNotContain(line.AvailablePallets, pallet => pallet.Pallet == "PAL-TRANSIT");
     }
 
     [Fact]

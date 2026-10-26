@@ -52,6 +52,14 @@ public sealed class ExpedicionesWorkbookParser
         "Situación",
     ];
 
+    private static readonly string[] CompanyHeaders =
+    [
+        "Id Compania",
+        "Id Compañía",
+        "Compania",
+        "Compañía",
+    ];
+
     public ExpedicionesWorkbook Parse(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -90,15 +98,15 @@ public sealed class ExpedicionesWorkbookParser
         var currentExpedition = string.Empty;
         var currentSituation = string.Empty;
         var pendingSummaryValues = false;
-        var summaryExpeditionColumn = 0;
-        var summarySituationColumn = 0;
+        var summaryExpeditionColumns = Array.Empty<int>();
+        var summarySituationColumns = Array.Empty<int>();
 
         for (var rowNumber = 1; rowNumber <= lastRow; rowNumber++)
         {
             if (pendingSummaryValues)
             {
-                currentExpedition = GetCellText(worksheet.Cell(rowNumber, summaryExpeditionColumn));
-                currentSituation = GetCellText(worksheet.Cell(rowNumber, summarySituationColumn));
+                currentExpedition = ReadFirstFieldValue(worksheet, rowNumber, summaryExpeditionColumns, ExpeditionHeaders);
+                currentSituation = ReadFirstFieldValue(worksheet, rowNumber, summarySituationColumns, SituationHeaders);
                 pendingSummaryValues = false;
                 continue;
             }
@@ -112,8 +120,8 @@ public sealed class ExpedicionesWorkbookParser
             if (TryFindSummaryHeader(
                 worksheet,
                 rowNumber,
-                out summaryExpeditionColumn,
-                out summarySituationColumn))
+                out summaryExpeditionColumns,
+                out summarySituationColumns))
             {
                 pendingSummaryValues = true;
                 continue;
@@ -150,9 +158,7 @@ public sealed class ExpedicionesWorkbookParser
                 continue;
             }
 
-            var lineSituation = columns.SituationColumn > 0
-                ? GetCellText(worksheet.Cell(rowNumber, columns.SituationColumn))
-                : string.Empty;
+            var lineSituation = ReadFirstFieldValue(worksheet, rowNumber, columns.SituationColumns, SituationHeaders);
             if (IsCancelled(currentSituation) || IsCancelled(lineSituation))
             {
                 continue;
@@ -161,9 +167,10 @@ public sealed class ExpedicionesWorkbookParser
             var description = columns.DescriptionColumn > 0
                 ? GetCellText(worksheet.Cell(rowNumber, columns.DescriptionColumn))
                 : string.Empty;
-            var expeditionNumber = columns.ExpeditionColumn > 0
-                ? GetCellText(worksheet.Cell(rowNumber, columns.ExpeditionColumn))
-                : currentExpedition;
+            var lineExpedition = ReadFirstFieldValue(worksheet, rowNumber, columns.ExpeditionColumns, ExpeditionHeaders);
+            var expeditionNumber = string.IsNullOrWhiteSpace(lineExpedition)
+                ? currentExpedition
+                : lineExpedition;
 
             lines.Add(new ExpeditionLine(
                 article,
@@ -203,16 +210,16 @@ public sealed class ExpedicionesWorkbookParser
         {
             TryFindColumn(worksheet, rowNumber, out var descriptionColumn, DescriptionHeaders);
             TryFindColumn(worksheet, rowNumber, out var preparedColumn, PreparedHeaders);
-            TryFindColumn(worksheet, rowNumber, out var expeditionColumn, ExpeditionHeaders);
-            TryFindColumn(worksheet, rowNumber, out var situationColumn, SituationHeaders);
+            var expeditionColumns = FindColumns(worksheet, rowNumber, ExpeditionHeaders);
+            var situationColumns = FindColumns(worksheet, rowNumber, SituationHeaders);
 
             columns = new DetailColumns(
                 articleColumn,
                 descriptionColumn,
                 quantityColumn,
                 preparedColumn,
-                expeditionColumn,
-                situationColumn);
+                expeditionColumns,
+                situationColumns);
             return true;
         }
 
@@ -223,18 +230,59 @@ public sealed class ExpedicionesWorkbookParser
     private static bool TryFindSummaryHeader(
         IXLWorksheet worksheet,
         int rowNumber,
-        out int expeditionColumn,
-        out int situationColumn)
+        out int[] expeditionColumns,
+        out int[] situationColumns)
     {
-        var hasExpedition = TryFindColumn(worksheet, rowNumber, out expeditionColumn, ExpeditionHeaders);
-        var hasSituation = TryFindColumn(worksheet, rowNumber, out situationColumn, SituationHeaders);
-        return hasExpedition && hasSituation;
+        expeditionColumns = FindColumns(worksheet, rowNumber, ExpeditionHeaders);
+        situationColumns = FindColumns(worksheet, rowNumber, SituationHeaders);
+        if (expeditionColumns.Length == 0 || situationColumns.Length == 0)
+        {
+            return false;
+        }
+
+        // Newer eFlow exports prepend a section label column (A = "EXPEDICIÓN")
+        // ahead of "Id Compañía" (B) while the real "Expedición" field sits to the
+        // right. Prefer columns at/after "Id Compañía" when present.
+        if (TryFindColumn(worksheet, rowNumber, out var companyColumn, CompanyHeaders))
+        {
+            expeditionColumns = OrderColumnsAfterAnchorFirst(expeditionColumns, companyColumn);
+            situationColumns = OrderColumnsAfterAnchorFirst(situationColumns, companyColumn);
+        }
+
+        return true;
+    }
+
+    private static int[] OrderColumnsAfterAnchorFirst(int[] columns, int anchorColumn)
+    {
+        if (columns.Length <= 1)
+        {
+            return columns;
+        }
+
+        return columns
+            .Where(column => column >= anchorColumn)
+            .Concat(columns.Where(column => column < anchorColumn))
+            .ToArray();
     }
 
     private static bool TryFindColumn(IXLWorksheet worksheet, int rowNumber, out int column, params string[] headerCandidates)
     {
+        var matches = FindColumns(worksheet, rowNumber, headerCandidates);
+        if (matches.Length > 0)
+        {
+            column = matches[0];
+            return true;
+        }
+
+        column = 0;
+        return false;
+    }
+
+    private static int[] FindColumns(IXLWorksheet worksheet, int rowNumber, params string[] headerCandidates)
+    {
         var headerRow = worksheet.Row(rowNumber);
         var lastColumn = worksheet.LastColumnUsed()?.ColumnNumber() ?? 0;
+        var matches = new List<int>();
 
         foreach (var headerCandidate in headerCandidates)
         {
@@ -242,15 +290,58 @@ public sealed class ExpedicionesWorkbookParser
             for (var candidate = 1; candidate <= lastColumn; candidate++)
             {
                 var value = headerRow.Cell(candidate).GetString();
-                if (string.Equals(NormalizeHeader(value), normalizedCandidate, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(NormalizeHeader(value), normalizedCandidate, StringComparison.OrdinalIgnoreCase) &&
+                    !matches.Contains(candidate))
                 {
-                    column = candidate;
-                    return true;
+                    matches.Add(candidate);
                 }
             }
         }
 
-        column = 0;
+        return matches.ToArray();
+    }
+
+    private static string ReadFirstFieldValue(
+        IXLWorksheet worksheet,
+        int rowNumber,
+        IReadOnlyList<int> columns,
+        IReadOnlyList<string> headerLabels)
+    {
+        foreach (var column in columns)
+        {
+            if (column <= 0)
+            {
+                continue;
+            }
+
+            var value = GetCellText(worksheet.Cell(rowNumber, column));
+            if (string.IsNullOrWhiteSpace(value) || MatchesAnyHeader(value, headerLabels))
+            {
+                continue;
+            }
+
+            return value;
+        }
+
+        return string.Empty;
+    }
+
+    private static bool MatchesAnyHeader(string value, IReadOnlyList<string> headerLabels)
+    {
+        var normalizedValue = NormalizeHeader(value);
+        if (string.IsNullOrEmpty(normalizedValue))
+        {
+            return false;
+        }
+
+        foreach (var headerLabel in headerLabels)
+        {
+            if (string.Equals(normalizedValue, NormalizeHeader(headerLabel), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -358,6 +449,6 @@ public sealed class ExpedicionesWorkbookParser
         int DescriptionColumn,
         int QuantityColumn,
         int PreparedColumn,
-        int ExpeditionColumn,
-        int SituationColumn);
+        int[] ExpeditionColumns,
+        int[] SituationColumns);
 }

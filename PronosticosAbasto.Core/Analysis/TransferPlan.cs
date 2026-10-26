@@ -20,11 +20,11 @@ internal static class TransferPlanner
     {
         pendingTransitQuantity = Math.Max(0m, pendingTransitQuantity);
         var principalShortage = Math.Max(0m, demandQuantity - principalInventoryQuantity);
-        var totalNeed = principalShortage + pendingTransitQuantity;
+        var totalNeed = Math.Max(0m, principalShortage - pendingTransitQuantity);
         var exactTransferQuantity = Math.Min(totalNeed, satelliteInventoryQuantity);
         var suggestedPallets = SelectPallets(satellitePallets, exactTransferQuantity);
         var transferSuggestionQuantity = suggestedPallets.Sum(pallet => pallet.Quantity);
-        var newTransferSuggestionQuantity = Math.Max(0m, transferSuggestionQuantity - pendingTransitQuantity);
+        var newTransferSuggestionQuantity = transferSuggestionQuantity;
         var palletRoundUpSurplusQuantity = Math.Max(0m, transferSuggestionQuantity - totalNeed);
         var remainingShortageAfterTransfer = Math.Max(0m, totalNeed - transferSuggestionQuantity);
         var state = ResolveTransferRecommendationState(totalNeed, satelliteInventoryQuantity, remainingShortageAfterTransfer);

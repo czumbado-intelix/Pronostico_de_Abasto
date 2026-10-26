@@ -8,7 +8,9 @@ public sealed class WeeklyForecastAnalyzer
         DateOnly selectedWeek,
         IEnumerable<string>? satelliteZones = null,
         IReadOnlyDictionary<string, decimal>? pendingTransitQuantities = null,
-        IEnumerable<string>? ignoredStorageZones = null)
+        IEnumerable<string>? ignoredStorageZones = null,
+        IReadOnlySet<string>? unavailablePalletKeys = null,
+        IEnumerable<DateOnly>? availableWeeks = null)
         => Analyze(
             inventory,
             forecast,
@@ -17,7 +19,9 @@ public sealed class WeeklyForecastAnalyzer
             CoverageThresholds.Default,
             satelliteZones,
             pendingTransitQuantities,
-            ignoredStorageZones);
+            ignoredStorageZones,
+            unavailablePalletKeys,
+            availableWeeks);
 
     public WeeklyAnalysisResult Analyze(
         IEnumerable<InventoryPosition> inventory,
@@ -26,7 +30,9 @@ public sealed class WeeklyForecastAnalyzer
         AnalysisHorizon horizon,
         IEnumerable<string>? satelliteZones = null,
         IReadOnlyDictionary<string, decimal>? pendingTransitQuantities = null,
-        IEnumerable<string>? ignoredStorageZones = null)
+        IEnumerable<string>? ignoredStorageZones = null,
+        IReadOnlySet<string>? unavailablePalletKeys = null,
+        IEnumerable<DateOnly>? availableWeeks = null)
         => Analyze(
             inventory,
             forecast,
@@ -35,7 +41,9 @@ public sealed class WeeklyForecastAnalyzer
             CoverageThresholds.Default,
             satelliteZones,
             pendingTransitQuantities,
-            ignoredStorageZones);
+            ignoredStorageZones,
+            unavailablePalletKeys,
+            availableWeeks);
 
     public WeeklyAnalysisResult Analyze(
         IEnumerable<InventoryPosition> inventory,
@@ -45,15 +53,23 @@ public sealed class WeeklyForecastAnalyzer
         CoverageThresholds thresholds,
         IEnumerable<string>? satelliteZones = null,
         IReadOnlyDictionary<string, decimal>? pendingTransitQuantities = null,
-        IEnumerable<string>? ignoredStorageZones = null)
+        IEnumerable<string>? ignoredStorageZones = null,
+        IReadOnlySet<string>? unavailablePalletKeys = null,
+        IEnumerable<DateOnly>? availableWeeks = null)
     {
         ArgumentNullException.ThrowIfNull(inventory);
         ArgumentNullException.ThrowIfNull(forecast);
 
         var pendingTransit = NormalizeQuantities(pendingTransitQuantities);
+        var unavailablePallets = NormalizePalletKeys(unavailablePalletKeys);
+        var availableInventory = unavailablePallets.Count == 0
+            ? inventory
+            : inventory.Where(position => !unavailablePallets.Contains(PalletIdentity.BuildArticlePallet(
+                position.Article,
+                position.Pallet)));
 
-        var futureWeeks = forecast
-            .Select(entry => entry.Week)
+        var horizonSourceWeeks = availableWeeks ?? forecast.Select(entry => entry.Week);
+        var futureWeeks = horizonSourceWeeks
             .Where(week => week >= selectedWeek)
             .Distinct()
             .OrderBy(week => week)
@@ -67,7 +83,7 @@ public sealed class WeeklyForecastAnalyzer
             : selectedWeek;
         var horizonWeekSet = horizonWeeks.ToHashSet();
 
-        var inventoryGroups = InventoryZoneClassifier.Summarize(inventory, satelliteZones, ignoredStorageZones);
+        var inventoryGroups = InventoryZoneClassifier.Summarize(availableInventory, satelliteZones, ignoredStorageZones);
 
         var forecastGroups = forecast
             .Where(entry => horizonWeekSet.Contains(entry.Week) && !string.IsNullOrWhiteSpace(entry.Article))
@@ -235,6 +251,18 @@ public sealed class WeeklyForecastAnalyzer
                 group => group.Key,
                 group => group.Sum(pair => pair.Value),
                 StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlySet<string> NormalizePalletKeys(IReadOnlySet<string>? palletKeys)
+    {
+        if (palletKeys is null || palletKeys.Count == 0)
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return palletKeys
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static CoverageStatus ResolveStatus(decimal inventoryQuantity, decimal forecastQuantity, CoverageThresholds thresholds)

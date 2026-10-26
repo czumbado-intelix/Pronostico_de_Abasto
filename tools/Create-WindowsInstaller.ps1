@@ -1,21 +1,40 @@
 param(
     [string]$Configuration = "Release",
-    [string]$Runtime = "win-x64"
+    [string]$Runtime = "win-x64",
+    [string]$InstallerVersion = ""
 )
 
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $root "PronosticosAbasto\PronosticosAbasto.csproj"
-$targetFramework = "net8.0-windows10.0.26100.0"
+$targetFramework = "net8.0-windows10.0.19041.0"
 $publishDir = Join-Path $root "PronosticosAbasto\bin\$Configuration\$targetFramework\$Runtime\publish"
 $outDir = Join-Path $root "dist\installer"
 $filesWxs = Join-Path $outDir "AppFiles.wxs"
 $productWxs = Join-Path $outDir "Product.wxs"
 $msiPath = Join-Path $outDir "PronosticosAbastoSetup.msi"
 
+if ([string]::IsNullOrWhiteSpace($InstallerVersion)) {
+    $now = Get-Date
+    $yearPart = [Math]::Max(0, $now.Year - 2020)
+    $buildPart = ($now.Day * 1440) + ($now.Hour * 60) + $now.Minute
+    $InstallerVersion = "{0}.{1}.{2}" -f $yearPart, $now.Month, $buildPart
+}
+
+Get-Process PronosticosAbasto -ErrorAction SilentlyContinue | Stop-Process -Force
+
+$rootFullPath = [System.IO.Path]::GetFullPath($root).TrimEnd([char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar))
+$publishFullPath = [System.IO.Path]::GetFullPath($publishDir).TrimEnd([char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar))
+if ((Test-Path $publishDir) -and $publishFullPath.StartsWith($rootFullPath + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+    Remove-Item -LiteralPath $publishDir -Recurse -Force
+}
+
 Write-Host "Publishing safe build..."
-dotnet publish $projectPath -c $Configuration -r $Runtime /p:PublishProfile=$Runtime /p:PublishTrimmed=false
+dotnet publish $projectPath -c $Configuration -r $Runtime /p:PublishProfile=$Runtime --self-contained true /p:SelfContained=true /p:WindowsAppSDKSelfContained=true /p:PublishSingleFile=false /p:PublishTrimmed=false
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet publish failed."
+}
 
 if (-not (Test-Path (Join-Path $publishDir "PronosticosAbasto.exe"))) {
     throw "Publish output was not found at $publishDir"
@@ -158,11 +177,11 @@ $productXml = @"
   <Package
     Name="Pronostico de Abasto"
     Manufacturer="Pronostico de Abasto"
-    Version="1.0.0.0"
+    Version="$InstallerVersion"
     UpgradeCode="{4A3435E0-F172-4D17-96BC-5512D4519035}"
     Scope="perMachine">
 
-    <MajorUpgrade DowngradeErrorMessage="Ya hay una version mas nueva instalada." />
+    <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="Ya hay una version mas nueva instalada." />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="AppIcon.ico" SourceFile="$iconPathEscaped" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
@@ -195,7 +214,7 @@ $productXml = @"
         WorkingDirectory="INSTALLFOLDER"
         Icon="AppIcon.ico" />
       <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
-      <RegistryValue Root="HKCU" Key="Software\PronosticoDeAbasto" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      <RegistryValue Root="HKLM" Key="Software\PronosticoDeAbasto" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
     <Feature Id="MainFeature" Title="Pronostico de Abasto" Level="1">

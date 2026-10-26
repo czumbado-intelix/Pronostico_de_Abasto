@@ -10,6 +10,49 @@ namespace PronosticosAbasto.Core.Tests.IO;
 public class AnalysisWorkbookExporterTests
 {
     [Fact]
+    public void ExportExpediciones_exports_visible_rows()
+    {
+        var exporter = new AnalysisWorkbookExporter();
+        var rows = new[]
+        {
+            new ExpedicionesExportRow(
+                "100000860",
+                "Escalera aluminio",
+                "D",
+                new[]
+                {
+                    new PalletInventoryDetail("PAL-1", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 15, new DateOnly(2026, 1, 1), "Disponible", "SERV01-C001-N01-1"),
+                    new PalletInventoryDetail("PAL-2", "ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", 10, new DateOnly(2026, 1, 2), "Disponible", "SERV01-C001-N01-2"),
+                }),
+        };
+
+        var bytes = exporter.ExportExpediciones("EPA", rows);
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var sheet = workbook.Worksheet("Expediciones");
+
+        Assert.Equal("Articulo", sheet.Cell("A1").GetString());
+        Assert.Equal("Descripcion", sheet.Cell("B1").GetString());
+        Assert.Equal("Pallet", sheet.Cell("C1").GetString());
+        Assert.Equal("Solicitud", sheet.Cell("D1").GetString());
+        Assert.Equal("Ubicacion", sheet.Cell("E1").GetString());
+        Assert.Equal("Zona", sheet.Cell("F1").GetString());
+        Assert.Equal("Tamano tarima", sheet.Cell("G1").GetString());
+
+        Assert.Equal("100000860", sheet.Cell("A2").GetString());
+        Assert.Equal("Escalera aluminio", sheet.Cell("B2").GetString());
+        Assert.Equal("PAL-1", sheet.Cell("C2").GetString());
+        Assert.Equal(15, sheet.Cell("D2").GetValue<decimal>());
+        Assert.Equal("SERV01-C001-N01-1", sheet.Cell("E2").GetString());
+        Assert.Equal("ZA46-ZA45 - ZONA ALMACENAJE - SERVICA", sheet.Cell("F2").GetString());
+        Assert.Equal("D", sheet.Cell("G2").GetString());
+
+        Assert.Equal("100000860", sheet.Cell("A3").GetString());
+        Assert.Equal("PAL-2", sheet.Cell("C3").GetString());
+        Assert.Equal(10, sheet.Cell("D3").GetValue<decimal>());
+        Assert.True(sheet.Cell("A4").IsEmpty());
+    }
+
+    [Fact]
     public void ExportWarehouseComparison_exports_visible_rows_with_comments()
     {
         var exporter = new AnalysisWorkbookExporter();
@@ -295,7 +338,7 @@ public class AnalysisWorkbookExporterTests
         };
         var pendingPalletKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            PalletIdentity.Build("5203003", "PAL-OLD", "ZA50-ALMACENAJE 4", "LOC-1"),
+            PalletIdentity.BuildArticlePallet("5203003", "PAL-OLD"),
         };
 
         var bytes = exporter.ExportTransferRequisition("Cofersa", result, ordered, descriptions, preparedArticles, tarimaSizes, pendingPalletKeys: pendingPalletKeys);
@@ -364,5 +407,36 @@ public class AnalysisWorkbookExporterTests
         Assert.Equal("PAL-NEW", cocoSheet.Cell("C3").GetString());
         Assert.Equal("Nuevo", cocoSheet.Cell("J3").GetString());
         Assert.NotNull(workbook.Worksheet("OTRAS"));
+
+        var selectedPallet = result.Articles
+            .Single(article => article.Article == "5203003")
+            .SuggestedPallets
+            .Where(pallet => pallet.Pallet == "PAL-NEW")
+            .ToArray();
+        var selectedPallets = new Dictionary<string, IReadOnlyList<PalletInventoryDetail>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["5203003"] = selectedPallet,
+        };
+
+        var selectedBytes = exporter.ExportTransferRequisition(
+            "Cofersa",
+            result,
+            ordered,
+            descriptions,
+            preparedArticles,
+            tarimaSizes,
+            selectedPallets,
+            pendingPalletKeys);
+        using var selectedWorkbook = new XLWorkbook(new MemoryStream(selectedBytes));
+        var selectedSheet = selectedWorkbook.Worksheet("Requisicion");
+        Assert.Equal("5203003", selectedSheet.Cell("A5").GetString());
+        Assert.Equal("PAL-NEW", selectedSheet.Cell("K5").GetString().Split('|')[1].Trim());
+        Assert.True(selectedSheet.Cell("A6").IsEmpty());
+        Assert.True(selectedWorkbook.Worksheet("Alistado satelital").Cell("A5").IsEmpty());
+
+        var selectedCocoSheet = selectedWorkbook.Worksheet("COCO");
+        Assert.Equal("5203003", selectedCocoSheet.Cell("A2").GetString());
+        Assert.Equal("PAL-NEW", selectedCocoSheet.Cell("C2").GetString());
+        Assert.True(selectedCocoSheet.Cell("A3").IsEmpty());
     }
 }

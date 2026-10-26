@@ -1,17 +1,22 @@
 using System.Globalization;
 using System.Text;
+using PronosticosAbasto.Core.IO;
 
 namespace PronosticosAbasto.Core.Analysis;
 
 public sealed class WarehouseComparisonAnalyzer
 {
+    private const int MinimumPeriodsForRequestedUntilComment = 4;
+    private const int DeferredWeeklyDemandPeriods = 5;
+
     public WarehouseComparisonResult Analyze(
         IEnumerable<InventoryPosition> inventory,
         IEnumerable<ForecastEntry> forecast,
         IEnumerable<DateOnly> availablePeriods,
         DateOnly startPeriod,
         IEnumerable<string>? ignoredStorageZones = null,
-        IReadOnlyDictionary<string, string>? referenceDescriptions = null)
+        IReadOnlyDictionary<string, string>? referenceDescriptions = null,
+        ForecastGranularity granularity = ForecastGranularity.Weekly)
     {
         ArgumentNullException.ThrowIfNull(inventory);
         ArgumentNullException.ThrowIfNull(forecast);
@@ -96,8 +101,12 @@ public sealed class WarehouseComparisonAnalyzer
                 var servicaQuantity = inventoryInfo?.ServicaQuantity ?? 0m;
                 var forecastQuantity = forecastInfo?.ForecastQuantity ?? 0m;
                 var hasFutureForecast = forecastQuantity > 0m;
-                var coveragePeriods = ComputeCoveragePeriods(oloQuantity, forecastInfo?.PeriodDemands, futurePeriods);
-                var automaticComment = hasFutureForecast ? string.Empty : "no solicita";
+                var coveragePeriods = ComputeCoveragePeriods(
+                    oloQuantity,
+                    forecastInfo?.PeriodDemands,
+                    futurePeriods,
+                    granularity);
+                var automaticComment = BuildAutomaticComment(forecastInfo, futurePeriods);
 
                 return new WarehouseComparisonRow(
                     article,
@@ -121,10 +130,34 @@ public sealed class WarehouseComparisonAnalyzer
             rows);
     }
 
+    private static string BuildAutomaticComment(ForecastComparisonGroup? forecastInfo, DateOnly[] futurePeriods)
+    {
+        if (forecastInfo is null || forecastInfo.ForecastQuantity <= 0m)
+        {
+            return "no solicita";
+        }
+
+        var firstRequestedPeriod = futurePeriods
+            .Where(period => forecastInfo.PeriodDemands.GetValueOrDefault(period, 0m) > 0m)
+            .Select(period => (DateOnly?)period)
+            .FirstOrDefault();
+
+        if (firstRequestedPeriod is not DateOnly requestedUntil)
+        {
+            return string.Empty;
+        }
+
+        var requestedHorizonPeriods = futurePeriods.Count(period => period <= requestedUntil);
+        return requestedHorizonPeriods >= MinimumPeriodsForRequestedUntilComment
+            ? $"solicita hasta {requestedUntil:dd.MM.yyyy}"
+            : string.Empty;
+    }
+
     private static decimal? ComputeCoveragePeriods(
         decimal inventoryQuantity,
         IReadOnlyDictionary<DateOnly, decimal>? periodDemands,
-        DateOnly[] futurePeriods)
+        DateOnly[] futurePeriods,
+        ForecastGranularity granularity)
     {
         if (futurePeriods.Length == 0 || periodDemands is null || periodDemands.Values.Sum() <= 0m)
         {
@@ -133,6 +166,11 @@ public sealed class WarehouseComparisonAnalyzer
 
         if (inventoryQuantity <= 0m)
         {
+            if (HasDeferredWeeklyDemand(periodDemands, futurePeriods, granularity))
+            {
+                return null;
+            }
+
             return 0m;
         }
 
@@ -157,6 +195,24 @@ public sealed class WarehouseComparisonAnalyzer
         }
 
         return covered;
+    }
+
+    private static bool HasDeferredWeeklyDemand(
+        IReadOnlyDictionary<DateOnly, decimal> periodDemands,
+        DateOnly[] futurePeriods,
+        ForecastGranularity granularity)
+    {
+        if (granularity != ForecastGranularity.Weekly || futurePeriods.Length <= DeferredWeeklyDemandPeriods)
+        {
+            return false;
+        }
+
+        return futurePeriods
+            .Take(DeferredWeeklyDemandPeriods)
+            .All(period => periodDemands.GetValueOrDefault(period, 0m) <= 0m) &&
+            futurePeriods
+                .Skip(DeferredWeeklyDemandPeriods)
+                .Any(period => periodDemands.GetValueOrDefault(period, 0m) > 0m);
     }
 
     private static string ResolveDescription(

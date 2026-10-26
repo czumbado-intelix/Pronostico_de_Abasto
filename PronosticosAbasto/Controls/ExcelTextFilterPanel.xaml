@@ -49,7 +49,9 @@
         <TextBlock Text="Filtros de texto" Padding="8,4,8,2" Foreground="{ThemeResource GuardianTextSecondaryBrush}" />
 
         <TextBox
+            x:Name="SearchTextBox"
             PlaceholderText="{x:Bind PlaceholderText}"
+            KeyDown="SearchTextBox_KeyDown"
             Style="{StaticResource GuardianTextBoxStyle}"
             Text="{Binding Filter.OptionSearchText, ElementName=Root, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         <CheckBox
