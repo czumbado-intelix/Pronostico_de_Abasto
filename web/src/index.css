@@ -1,0 +1,437 @@
+:root {
+  color: #000;
+  background: #f3f6f5;
+  font-family:
+    Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 236px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #fff;
+  border-right: 1px solid #d9e2df;
+  padding: 18px 14px;
+}
+
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #fff;
+  background: #00a88f;
+  margin: 0 0 18px;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 6px;
+}
+
+.nav-button {
+  width: 100%;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.nav-button.active {
+  background: #00a88f;
+  color: #fff;
+}
+
+.workspace {
+  min-width: 0;
+  padding: 22px;
+}
+
+.topbar,
+.file-strip,
+.notice,
+.module {
+  background: #fff;
+  border: 1px solid #d9e2df;
+  border-radius: 8px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.topbar p {
+  margin: 5px 0 0;
+  color: #4d5a56;
+  font-size: 13px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 420px;
+}
+
+select,
+input,
+textarea {
+  border: 1px solid #c8d5d1;
+  border-radius: 6px;
+  background: #fff;
+  color: #000;
+}
+
+select,
+input {
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #c8d5d1;
+  border-radius: 7px;
+  padding: 0 10px;
+}
+
+.search-box input {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  outline: none;
+  width: 100%;
+}
+
+.file-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(240px, 0.7fr);
+  gap: 10px;
+  padding: 12px;
+  margin-top: 14px;
+}
+
+.file-loader {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  border: 1px dashed #b8c8c4;
+  background: #fbfdfc;
+}
+
+.file-loader span {
+  grid-row: 1 / span 2;
+  color: #00a88f;
+}
+
+.file-loader strong {
+  font-size: 13px;
+}
+
+.file-loader small {
+  color: #4d5a56;
+}
+
+.file-loader.loaded {
+  border-style: solid;
+  border-color: #00a88f;
+}
+
+.file-loader input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.period-controls {
+  display: grid;
+  grid-template-columns: 1fr 82px;
+  gap: 10px;
+}
+
+.period-controls label,
+.settings-grid label {
+  display: grid;
+  gap: 5px;
+  color: #26332f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  color: #000;
+}
+
+.notice svg {
+  color: #00a88f;
+}
+
+.notice.is-busy svg {
+  animation: pulse 1s infinite ease-in-out;
+}
+
+.module {
+  margin-top: 14px;
+  padding: 14px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.summary-tile {
+  border: 1px solid #d9e2df;
+  border-radius: 7px;
+  padding: 12px;
+}
+
+.summary-tile span {
+  display: block;
+  color: #4d5a56;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.summary-tile strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 10px;
+  color: #4d5a56;
+  font-size: 13px;
+}
+
+.secondary-button,
+.primary-button,
+.small-button,
+.icon-action {
+  border-radius: 6px;
+  min-height: 34px;
+  border: 1px solid #00a88f;
+  background: #fff;
+  color: #000;
+  font-weight: 700;
+}
+
+.secondary-button,
+.primary-button,
+.small-button {
+  padding: 0 12px;
+}
+
+.primary-button {
+  background: #00a88f;
+  color: #fff;
+}
+
+.icon-action {
+  width: 34px;
+  display: inline-grid;
+  place-items: center;
+  color: #00a88f;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid #d9e2df;
+  border-radius: 7px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+th,
+td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e5ece9;
+  text-align: left;
+  vertical-align: middle;
+  font-size: 13px;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: #f7faf9;
+  color: #26332f;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  z-index: 1;
+}
+
+tbody tr:hover {
+  background: #f7fbfa;
+}
+
+.mono {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
+.strong {
+  font-weight: 800;
+}
+
+.empty-state {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #000;
+  background: #fff;
+  border: 1px solid #d9e2df;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.empty-state svg {
+  color: #00a88f;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.settings-grid textarea {
+  min-height: 260px;
+  resize: vertical;
+  padding: 10px;
+  line-height: 1.45;
+}
+
+.settings-grid .primary-button {
+  grid-column: 1 / -1;
+  width: max-content;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .brand-mark {
+    margin: 0;
+    width: 38px;
+    height: 38px;
+  }
+
+  .sidebar nav {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .nav-button {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .workspace {
+    padding: 12px;
+  }
+
+  .topbar,
+  .topbar-actions {
+    display: grid;
+    min-width: 0;
+  }
+
+  .file-strip,
+  .summary-grid,
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}

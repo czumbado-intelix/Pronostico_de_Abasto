@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "pronostico-abasto",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-11-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pronostico-abasto",
+      "database_id": "a0500cae-a137-4fc2-99c2-f6964df20b8f",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "APP_ENV": "production"
+  }
+}

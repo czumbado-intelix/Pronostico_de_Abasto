@@ -54,6 +54,13 @@ _ReSharper*/
 *.DotSettings.user
 *.dotCover
 .idea/
+node_modules/
+.wrangler/
+.dev.vars
+web/dist/
+web/.wrangler/
+web/src/assets/hero.png
+web/src/worker-configuration.d.ts
 
 # Ajustes locales de herramientas
 .claude/settings.local.json
