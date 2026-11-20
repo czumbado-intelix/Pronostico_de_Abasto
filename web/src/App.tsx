@@ -62,13 +62,16 @@ import type {
 import {
   addTransit,
   loadComparisonComments,
+  loadFileSessions,
   loadOrderState,
   loadSettings,
   loadTransit,
   markTransitReceived,
   saveComparisonComments,
+  saveFileSession,
   saveOrderState,
   saveSettings,
+  type FileSessionKind,
 } from './services/api'
 import './index.css'
 
@@ -136,15 +139,25 @@ function App() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [loadedSettings, loadedTransit, loadedComments] = await Promise.all([
+      const [loadedSettings, loadedTransit, loadedComments, loadedFiles] = await Promise.all([
         loadSettings(company),
         loadTransit(company),
         loadComparisonComments(company),
+        loadFileSessions(company),
       ])
       if (!cancelled) {
         setSettingsByCompany((current) => ({ ...current, [company]: loadedSettings }))
         setTransit(loadedTransit)
         setComparisonComments(loadedComments)
+        setFilesByCompany((current) => ({ ...current, [company]: loadedFiles }))
+        setPeriodByCompany((current) => ({
+          ...current,
+          [company]: resolveAvailablePeriod(current[company], loadedFiles.forecast?.availablePeriods),
+        }))
+        setComparisonPeriodByCompany((current) => ({
+          ...current,
+          [company]: resolveAvailablePeriod(current[company], loadedFiles.comparisonForecast?.availablePeriods),
+        }))
       }
     }
     void load()
@@ -407,18 +420,18 @@ function App() {
   async function handleInventory(file: File) {
     await runBusy('Leyendo inventario...', async () => {
       const inventory = await parseInventoryFile(file)
-      updateCompanyFiles((current) => ({ ...current, inventory }))
-      setNotice(`Inventario cargado: ${inventory.positions.length.toLocaleString('es-CR')} filas.`)
+      await persistFileSession('inventory', inventory, file.name)
+      setNotice(`Inventario cargado en la nube: ${inventory.positions.length.toLocaleString('es-CR')} filas.`)
     })
   }
 
   async function handleForecast(file: File) {
     await runBusy('Leyendo forecast...', async () => {
       const forecast = await parseForecastFile(file)
-      updateCompanyFiles((current) => ({ ...current, forecast }))
+      await persistFileSession('forecast', forecast, file.name)
       setPeriodByCompany((current) => ({ ...current, [company]: forecast.availablePeriods[0] ?? '' }))
       setNotice(
-        `Forecast cargado: ${forecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
+        `Forecast cargado en la nube: ${forecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
       )
     })
   }
@@ -426,18 +439,18 @@ function App() {
   async function handleComparisonInventory(file: File) {
     await runBusy('Leyendo inventario de comparativa...', async () => {
       const comparisonInventory = await parseInventoryFile(file)
-      updateCompanyFiles((current) => ({ ...current, comparisonInventory }))
-      setNotice(`Inventario de comparativa cargado: ${comparisonInventory.positions.length.toLocaleString('es-CR')} filas.`)
+      await persistFileSession('comparisonInventory', comparisonInventory, file.name)
+      setNotice(`Inventario de comparativa cargado en la nube: ${comparisonInventory.positions.length.toLocaleString('es-CR')} filas.`)
     })
   }
 
   async function handleComparisonForecast(file: File) {
     await runBusy('Leyendo forecast de comparativa...', async () => {
       const comparisonForecast = await parseForecastFile(file)
-      updateCompanyFiles((current) => ({ ...current, comparisonForecast }))
+      await persistFileSession('comparisonForecast', comparisonForecast, file.name)
       setComparisonPeriodByCompany((current) => ({ ...current, [company]: comparisonForecast.availablePeriods[0] ?? '' }))
       setNotice(
-        `Forecast de comparativa cargado: ${comparisonForecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
+        `Forecast de comparativa cargado en la nube: ${comparisonForecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
       )
     })
   }
@@ -445,8 +458,8 @@ function App() {
   async function handleExpediciones(file: File) {
     await runBusy('Leyendo expediciones...', async () => {
       const expediciones = await parseExpedicionesFile(file)
-      updateCompanyFiles((current) => ({ ...current, expediciones }))
-      setNotice(`Expediciones cargadas: ${expediciones.lines.length.toLocaleString('es-CR')} lineas faltantes.`)
+      await persistFileSession('expediciones', expediciones, file.name)
+      setNotice(`Expediciones cargadas en la nube: ${expediciones.lines.length.toLocaleString('es-CR')} lineas faltantes.`)
     })
   }
 
@@ -476,6 +489,16 @@ function App() {
     } finally {
       setBusy('')
     }
+  }
+
+  async function persistFileSession<K extends FileSessionKind>(
+    kind: K,
+    payload: NonNullable<LoadedFiles[K]>,
+    sourceName: string,
+  ) {
+    updateCompanyFiles((current) => ({ ...current, [kind]: payload }))
+    const savedFiles = await saveFileSession(company, kind, payload, sourceName)
+    setFilesByCompany((current) => ({ ...current, [company]: savedFiles }))
   }
 
   function updateCompanyFiles(updater: (files: LoadedFiles) => LoadedFiles) {
@@ -2253,6 +2276,13 @@ function formatPreparedText(items: CatalogArticle[]): string {
 
 function formatTarimaText(items: TarimaSizeEntry[]): string {
   return items.map((item) => `${item.article}\t${item.sizeCode}\t${item.description}`).join('\n')
+}
+
+function resolveAvailablePeriod(current: string, availablePeriods?: string[]): string {
+  if (!availablePeriods?.length) {
+    return ''
+  }
+  return current && availablePeriods.includes(current) ? current : availablePeriods[0]
 }
 
 function settingsStateKey(settings: AppSettings): string {

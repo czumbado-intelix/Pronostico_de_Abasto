@@ -1,10 +1,14 @@
 import { defaultSettings } from '../domain/defaults'
-import type { AppSettings, Company, OrderStateEntry, TransitItem } from '../domain/types'
+import type { AppSettings, Company, LoadedFiles, OrderStateEntry, TransitItem } from '../domain/types'
 
 const settingsKey = (company: Company) => `pronostico-abasto:settings:${company}`
 const transitKey = (company: Company) => `pronostico-abasto:transit:${company}`
+const fileSessionsKey = (company: Company) => `pronostico-abasto:file-sessions:${company}`
 const orderStateKey = (company: Company, periodKey: string) => `pronostico-abasto:orders:${company}:${periodKey}`
 const commentsKey = (company: Company) => `pronostico-abasto:comparison-comments:${company}`
+const fileSessionKinds = ['inventory', 'forecast', 'expediciones', 'comparisonInventory', 'comparisonForecast'] as const
+
+export type FileSessionKind = (typeof fileSessionKinds)[number]
 
 export async function loadSettings(company: Company): Promise<AppSettings> {
   const fallback = normalizeSettings(company, readLocal(settingsKey(company), defaultSettings(company)))
@@ -105,6 +109,71 @@ export async function markTransitReceived(company: Company, ids: string[]): Prom
     if (response.ok) {
       const saved = (await response.json()) as TransitItem[]
       writeLocal(transitKey(company), saved)
+      return saved
+    }
+  } catch {
+    // Local fallback already persisted.
+  }
+
+  return local
+}
+
+export async function loadFileSessions(company: Company): Promise<LoadedFiles> {
+  const fallback = normalizeLoadedFiles(readLocal(fileSessionsKey(company), {}))
+  try {
+    const response = await fetch(`/api/file-sessions/${company}`)
+    if (!response.ok) {
+      return fallback
+    }
+    const files = normalizeLoadedFiles(await response.json())
+    writeLocal(fileSessionsKey(company), files)
+    return files
+  } catch {
+    return fallback
+  }
+}
+
+export async function saveFileSession<K extends FileSessionKind>(
+  company: Company,
+  kind: K,
+  payload: NonNullable<LoadedFiles[K]>,
+  sourceName?: string,
+): Promise<LoadedFiles> {
+  const local = {
+    ...normalizeLoadedFiles(readLocal(fileSessionsKey(company), {})),
+    [kind]: payload,
+  } as LoadedFiles
+  writeLocal(fileSessionsKey(company), local)
+
+  try {
+    const response = await fetch(`/api/file-sessions/${company}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind, payload, sourceName }),
+    })
+    if (response.ok) {
+      const saved = normalizeLoadedFiles(await response.json())
+      writeLocal(fileSessionsKey(company), saved)
+      return saved
+    }
+    throw new Error(await responseError(response, 'No se pudo guardar el archivo en la nube.'))
+  } catch (error) {
+    throw error instanceof Error ? error : new Error('No se pudo guardar el archivo en la nube.')
+  }
+}
+
+export async function deleteFileSession(company: Company, kind: FileSessionKind): Promise<LoadedFiles> {
+  const local = normalizeLoadedFiles(readLocal(fileSessionsKey(company), {}))
+  delete local[kind]
+  writeLocal(fileSessionsKey(company), local)
+
+  try {
+    const response = await fetch(`/api/file-sessions/${company}?kind=${encodeURIComponent(kind)}`, {
+      method: 'DELETE',
+    })
+    if (response.ok) {
+      const saved = normalizeLoadedFiles(await response.json())
+      writeLocal(fileSessionsKey(company), saved)
       return saved
     }
   } catch {
@@ -217,6 +286,15 @@ function writeLocal<T>(key: string, value: T): void {
   }
 }
 
+async function responseError(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: string }
+    return body.error?.trim() || fallback
+  } catch {
+    return fallback
+  }
+}
+
 function normalizeOrderState(entries: Record<string, OrderStateEntry>): Record<string, OrderStateEntry> {
   return Object.fromEntries(
     Object.entries(entries ?? {})
@@ -237,6 +315,18 @@ function normalizeComments(comments: Record<string, string>): Record<string, str
       .map(([article, comment]) => [article.trim(), String(comment ?? '').trim()] as const)
       .filter(([article, comment]) => article && comment),
   )
+}
+
+function normalizeLoadedFiles(value: unknown): LoadedFiles {
+  const source = value && typeof value === 'object' ? (value as Partial<Record<FileSessionKind, unknown>>) : {}
+  const files: Partial<Record<FileSessionKind, unknown>> = {}
+  for (const kind of fileSessionKinds) {
+    const payload = source[kind]
+    if (payload && typeof payload === 'object') {
+      files[kind] = payload
+    }
+  }
+  return files as LoadedFiles
 }
 
 function cleanStringList(value: unknown): string[] {
