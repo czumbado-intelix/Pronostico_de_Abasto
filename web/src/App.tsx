@@ -100,7 +100,7 @@ function App() {
       horizonPeriods,
       thresholds: settings.thresholds,
       satelliteZones: settings.satelliteZones,
-      ignoredStorageZones: settings.excludedZones,
+      ignoredStorageZones: [],
       pendingTransitQuantities: pendingQuantities,
       unavailablePalletKeys,
       availablePeriods: files.forecast.availablePeriods,
@@ -113,7 +113,6 @@ function App() {
     horizonPeriods,
     pendingQuantities,
     selectedPeriod,
-    settings.excludedZones,
     settings.satelliteZones,
     settings.thresholds,
     unavailablePalletKeys,
@@ -128,7 +127,7 @@ function App() {
       inventory: files.inventory.positions,
       lines: files.expediciones.lines,
       satelliteZones: settings.satelliteZones,
-      ignoredStorageZones: settings.excludedZones,
+      ignoredStorageZones: [],
       pendingTransitQuantities: pendingQuantities,
       unavailablePalletKeys,
     })
@@ -136,7 +135,6 @@ function App() {
     files.expediciones,
     files.inventory,
     pendingQuantities,
-    settings.excludedZones,
     settings.satelliteZones,
     unavailablePalletKeys,
   ])
@@ -572,7 +570,6 @@ function TransitView(props: { items: TransitItem[]; onReceive: (id: string) => v
 
 function SettingsView(props: { settings: AppSettings; onSave: (settings: AppSettings) => void }) {
   const [satelliteZones, setSatelliteZones] = useState(props.settings.satelliteZones.join('\n'))
-  const [excludedZones, setExcludedZones] = useState(props.settings.excludedZones.join('\n'))
   const [redPercent, setRedPercent] = useState(props.settings.thresholds.redPercent)
   const [healthyPercent, setHealthyPercent] = useState(props.settings.thresholds.healthyPercent)
 
@@ -581,10 +578,6 @@ function SettingsView(props: { settings: AppSettings; onSave: (settings: AppSett
       <label>
         Zonas satelite
         <textarea value={satelliteZones} onChange={(event) => setSatelliteZones(event.target.value)} />
-      </label>
-      <label>
-        Zonas excluidas del inventario
-        <textarea value={excludedZones} onChange={(event) => setExcludedZones(event.target.value)} />
       </label>
       <label>
         Rojo %
@@ -605,7 +598,7 @@ function SettingsView(props: { settings: AppSettings; onSave: (settings: AppSett
           props.onSave({
             company: props.settings.company,
             satelliteZones: splitLines(satelliteZones),
-            excludedZones: splitLines(excludedZones),
+            excludedZones: [],
             thresholds: { redPercent, healthyPercent },
           })
         }
@@ -711,7 +704,6 @@ function settingsStateKey(settings: AppSettings): string {
   return [
     settings.company,
     settings.satelliteZones.join('|'),
-    settings.excludedZones.join('|'),
     settings.thresholds.redPercent,
     settings.thresholds.healthyPercent,
   ].join('::')
