@@ -161,6 +161,40 @@ export interface ExpedicionesAnalysisResult {
   withoutExternal: number
 }
 
+export interface WarehouseComparisonRow {
+  article: string
+  description: string
+  oloQuantity: number
+  servicaQuantity: number
+  forecastQuantity: number
+  coveragePeriods?: number
+  hasFutureForecast: boolean
+  automaticComment: string
+}
+
+export interface WarehouseComparisonResult {
+  selectedPeriod: string
+  horizonEndPeriod: string
+  periodCount: number
+  rows: WarehouseComparisonRow[]
+}
+
+export interface WarehouseComparisonHistogramBucket {
+  label: string
+  articleCount: number
+  percentage: number
+}
+
+export interface ScenarioPeriod {
+  label: string
+  demand: number
+  transferLoad: number
+}
+
+export interface ScenarioResult {
+  periods: ScenarioPeriod[]
+}
+
 export interface TransitItem {
   id: string
   company: Company
@@ -179,11 +213,24 @@ export interface TransitItem {
   reconciledAt?: string
 }
 
+export interface CatalogArticle {
+  article: string
+  description: string
+}
+
+export interface TarimaSizeEntry {
+  article: string
+  description: string
+  sizeCode: string
+}
+
 export interface AppSettings {
   company: Company
   satelliteZones: string[]
   excludedZones: string[]
   thresholds: CoverageThresholds
+  preparedArticles: CatalogArticle[]
+  tarimaSizes: TarimaSizeEntry[]
 }
 
 export interface LoadedFiles {

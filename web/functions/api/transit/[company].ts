@@ -125,11 +125,22 @@ function normalizeTransit(company: string, item: TransitInput) {
 }
 
 function resolveOrigin(storageZone: string): string {
-  const normalized = storageZone.toUpperCase()
-  if (normalized.includes('GUACIMA')) return 'COCO'
-  if (normalized.includes('SERVICA')) return 'SERVICA'
-  if (normalized.includes('ALGEFISA')) return 'ALGEFISA'
-  return 'EXTERNA'
+  const normalized = storageZone
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^A-Z0-9]/g, '')
+  if (normalized.includes('SERVICA') || normalized.includes('ZA46ZA45') || normalized.startsWith('ZA46')) {
+    return 'SERVICA'
+  }
+  if (
+    normalized.includes('GUACIMA') ||
+    ['ZA47', 'ZA48', 'ZA49', 'ZA50', 'ZA52', 'ZA55'].some((prefix) => normalized.startsWith(prefix))
+  ) {
+    return 'COCO'
+  }
+  return 'OTRAS'
 }
 
 function clean(value: unknown): string {

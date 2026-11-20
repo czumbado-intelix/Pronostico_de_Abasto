@@ -5,6 +5,7 @@ import {
   isIgnoredStorageZone,
   normalizeArticleKey,
   normalizeZoneKey,
+  resolveStorageOrigin,
 } from './normalization'
 import type {
   ArticleAnalysisResult,
@@ -15,11 +16,16 @@ import type {
   ExpedicionesAnalysisResult,
   ExpeditionLine,
   ForecastEntry,
+  ForecastGranularity,
   InventoryPosition,
   PalletInventoryDetail,
+  ScenarioResult,
   TransferPlan,
   TransferRecommendationState,
   TransitItem,
+  WarehouseComparisonHistogramBucket,
+  WarehouseComparisonResult,
+  WarehouseComparisonRow,
   WeeklyAnalysisResult,
   ZoneInventoryDetail,
 } from './types'
@@ -409,6 +415,164 @@ export function analyzeExpediciones(args: {
   }
 }
 
+export function analyzeWarehouseComparison(args: {
+  inventory: InventoryPosition[]
+  forecast: ForecastEntry[]
+  selectedPeriod: string
+  availablePeriods: string[]
+  ignoredStorageZones?: string[]
+  descriptions?: Record<string, string>
+  granularity?: ForecastGranularity
+}): WarehouseComparisonResult {
+  const ignoredZoneSet = buildStorageZoneSet(args.ignoredStorageZones)
+  const futurePeriods = [...new Set(args.availablePeriods.filter(Boolean))]
+    .filter((period) => period >= args.selectedPeriod)
+    .sort()
+
+  const validInventory = args.inventory
+    .filter((position) => position.article.trim())
+    .filter((position) => !isIgnoredStorageZone(position.storageZone, ignoredZoneSet))
+
+  const inventoryGroups = new Map<
+    string,
+    { article: string; description: string; oloQuantity: number; servicaQuantity: number }
+  >()
+  for (const position of validInventory) {
+    const key = normalizeArticleKey(position.article).toUpperCase()
+    const existing = inventoryGroups.get(key) ?? {
+      article: position.article.trim(),
+      description: '',
+      oloQuantity: 0,
+      servicaQuantity: 0,
+    }
+    if (!existing.description && position.description.trim()) {
+      existing.description = position.description.trim()
+    }
+    if (resolveStorageOrigin(position.storageZone) === 'SERVICA') {
+      existing.servicaQuantity += position.quantity
+    } else {
+      existing.oloQuantity += position.quantity
+    }
+    inventoryGroups.set(key, existing)
+  }
+
+  const futurePeriodSet = new Set(futurePeriods)
+  const forecastGroups = groupForecast(args.forecast.filter((entry) => futurePeriodSet.has(entry.period)))
+  const articleKeys = new Set([...inventoryGroups.keys(), ...forecastGroups.keys()])
+
+  const rows: WarehouseComparisonRow[] = [...articleKeys].map((key) => {
+    const inventoryInfo = inventoryGroups.get(key)
+    const forecastInfo = forecastGroups.get(key)
+    const article = inventoryInfo?.article ?? forecastInfo?.article ?? key
+    const description =
+      inventoryInfo?.description ||
+      args.descriptions?.[article] ||
+      args.descriptions?.[key] ||
+      ''
+    const forecastQuantity = forecastInfo?.quantity ?? 0
+    const coveragePeriods = computeCoveragePeriods(
+      inventoryInfo?.oloQuantity ?? 0,
+      forecastInfo?.byPeriod,
+      futurePeriods,
+    )
+
+    return {
+      article,
+      description,
+      oloQuantity: inventoryInfo?.oloQuantity ?? 0,
+      servicaQuantity: inventoryInfo?.servicaQuantity ?? 0,
+      forecastQuantity,
+      coveragePeriods,
+      hasFutureForecast: forecastQuantity > 0,
+      automaticComment: buildComparisonComment(forecastInfo?.byPeriod, futurePeriods, args.granularity ?? 'Weekly'),
+    }
+  })
+
+  rows.sort(
+    (a, b) =>
+      (a.coveragePeriods ?? Number.MAX_SAFE_INTEGER) - (b.coveragePeriods ?? Number.MAX_SAFE_INTEGER) ||
+      b.forecastQuantity - a.forecastQuantity ||
+      a.article.localeCompare(b.article),
+  )
+
+  return {
+    selectedPeriod: args.selectedPeriod,
+    horizonEndPeriod: futurePeriods[futurePeriods.length - 1] ?? args.selectedPeriod,
+    periodCount: futurePeriods.length,
+    rows,
+  }
+}
+
+export function buildWarehouseComparisonHistogram(
+  rows: WarehouseComparisonRow[],
+  periodCount: number,
+  periodUnit: string,
+): WarehouseComparisonHistogramBucket[] {
+  const chartRows = rows.filter((row) => row.hasFutureForecast && row.coveragePeriods !== undefined)
+  if (chartRows.length === 0 || periodCount <= 0) {
+    return []
+  }
+
+  const buckets: WarehouseComparisonHistogramBucket[] = []
+  for (let period = 0; period <= periodCount; period += 1) {
+    const articleCount = chartRows.filter((row) =>
+      Math.min(periodCount, Math.floor(row.coveragePeriods ?? 0)) === period,
+    ).length
+    buckets.push({
+      label: `${period} ${periodUnit}`,
+      articleCount,
+      percentage: articleCount / chartRows.length * 100,
+    })
+  }
+  return buckets.filter((bucket) => bucket.articleCount > 0)
+}
+
+export function simulateScenario(args: {
+  inventory: InventoryPosition[]
+  forecast: ForecastEntry[]
+  availablePeriods: string[]
+  selectedPeriod: string
+  horizonMonths: number
+  safetyBufferPercent: number
+  satelliteZones?: string[]
+}): ScenarioResult {
+  const start = parsePeriodDate(args.selectedPeriod)
+  if (!start) {
+    return { periods: [] }
+  }
+
+  const end = new Date(start)
+  end.setMonth(end.getMonth() + Math.max(1, args.horizonMonths))
+  const periods = args.availablePeriods
+    .map((period) => ({ period, date: parsePeriodDate(period) }))
+    .filter((item): item is { period: string; date: Date } => Boolean(item.date))
+    .filter((item) => item.date >= start && item.date < end)
+    .sort((a, b) => a.period.localeCompare(b.period))
+
+  const factor = 1 + Math.max(0, args.safetyBufferPercent) / 100
+  const summaries = summarizeInventory(args.inventory, args.satelliteZones, [])
+  const scenarioPeriods = periods.map(({ period }) => {
+    const periodForecast = args.forecast.filter((entry) => entry.period === period)
+    const demand = periodForecast.reduce((sum, entry) => sum + entry.quantity, 0) * factor
+    let transferLoad = 0
+    const demandByArticle = groupForecast(periodForecast)
+    for (const [article, forecast] of demandByArticle) {
+      const summary = summaries.get(article)
+      const periodDemand = forecast.quantity * factor
+      const shortage = Math.max(0, periodDemand - (summary?.principalQuantity ?? 0))
+      transferLoad += Math.min(shortage, summary?.satelliteQuantity ?? 0)
+    }
+
+    return {
+      label: formatPeriodLabel(period),
+      demand,
+      transferLoad,
+    }
+  })
+
+  return { periods: scenarioPeriods }
+}
+
 function groupForecast(entries: ForecastEntry[]): Map<
   string,
   { article: string; quantity: number; byPeriod: Map<string, number> }
@@ -430,6 +594,50 @@ function groupForecast(entries: ForecastEntry[]): Map<
     }
   }
   return groups
+}
+
+function buildComparisonComment(
+  periodDemands: Map<string, number> | undefined,
+  futurePeriods: string[],
+  granularity: ForecastGranularity,
+): string {
+  if (!periodDemands || [...periodDemands.values()].reduce((sum, value) => sum + value, 0) <= 0) {
+    return 'no solicita'
+  }
+
+  const firstRequestedPeriod = futurePeriods.find((period) => (periodDemands.get(period) ?? 0) > 0)
+  if (!firstRequestedPeriod) {
+    return ''
+  }
+
+  const requestedHorizonPeriods = futurePeriods.filter((period) => period <= firstRequestedPeriod).length
+  return requestedHorizonPeriods >= 4
+    ? `solicita hasta ${formatPeriodForComment(firstRequestedPeriod, granularity)}`
+    : ''
+}
+
+function formatPeriodForComment(period: string, granularity: ForecastGranularity): string {
+  const date = parsePeriodDate(period)
+  if (!date) {
+    return period
+  }
+  if (granularity === 'Monthly') {
+    return `${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`
+  }
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`
+}
+
+function parsePeriodDate(period: string): Date | undefined {
+  const date = new Date(`${period}T00:00:00`)
+  return Number.isNaN(date.valueOf()) ? undefined : date
+}
+
+function formatPeriodLabel(period: string): string {
+  const date = parsePeriodDate(period)
+  if (!date) {
+    return period
+  }
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 
 function computeCoveragePeriods(

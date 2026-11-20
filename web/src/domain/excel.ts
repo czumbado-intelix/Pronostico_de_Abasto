@@ -1,6 +1,7 @@
 import readXlsxFile, { type Row } from 'read-excel-file/browser'
 import { normalizeHeader, parseNumber } from './normalization'
 import type {
+  CatalogArticle,
   ExpedicionesWorkbook,
   ExpeditionLine,
   ForecastEntry,
@@ -8,6 +9,7 @@ import type {
   ForecastWorkbook,
   InventoryPosition,
   InventoryWorkbook,
+  TarimaSizeEntry,
 } from './types'
 
 type SheetRows = Row[]
@@ -61,6 +63,14 @@ export async function parseForecastFile(file: File): Promise<ForecastWorkbook> {
 
 export async function parseExpedicionesFile(file: File): Promise<ExpedicionesWorkbook> {
   return parseExpedicionesWorkbook(await readWorkbook(file))
+}
+
+export async function parsePreparedArticlesFile(file: File): Promise<CatalogArticle[]> {
+  return parsePreparedArticlesWorkbook(await readWorkbook(file))
+}
+
+export async function parseTarimaSizesFile(file: File): Promise<TarimaSizeEntry[]> {
+  return parseTarimaSizesWorkbook(await readWorkbook(file))
 }
 
 export function parseInventoryWorkbook(workbook: WorkbookSheets): InventoryWorkbook {
@@ -203,6 +213,85 @@ export function parseExpedicionesWorkbook(workbook: WorkbookSheets): Expedicione
   }
 
   throw new Error('No se encontro una hoja de expediciones con las columnas requeridas: Articulo y Cantidad.')
+}
+
+export function parsePreparedArticlesWorkbook(workbook: WorkbookSheets): CatalogArticle[] {
+  for (const rows of workbook) {
+    const header = rows[0]
+    if (!header) {
+      continue
+    }
+
+    const articleColumn = findColumn(header, articleHeaders)
+    if (articleColumn < 0) {
+      continue
+    }
+
+    const descriptionColumn = findColumn(header, descriptionHeaders)
+    const byArticle = new Map<string, CatalogArticle>()
+    for (const row of rows.slice(1)) {
+      const article = cellText(row[articleColumn]).trim()
+      if (!article) {
+        continue
+      }
+
+      const description = cellText(row[descriptionColumn]).trim()
+      const existing = byArticle.get(article.toUpperCase())
+      if (!existing || (!existing.description && description)) {
+        byArticle.set(article.toUpperCase(), { article, description })
+      }
+    }
+
+    return [...byArticle.values()].sort((a, b) => a.article.localeCompare(b.article))
+  }
+
+  throw new Error('No se encontro una hoja con la columna requerida: Articulo.')
+}
+
+export function parseTarimaSizesWorkbook(workbook: WorkbookSheets): TarimaSizeEntry[] {
+  for (const rows of workbook) {
+    const header = rows[0]
+    if (!header) {
+      continue
+    }
+
+    const articleColumn = findColumn(header, articleHeaders)
+    const sizeColumn = findColumn(header, [
+      'Tamano tarima',
+      'Tamaño tarima',
+      'Tamano de tarima',
+      'Tamaño de tarima',
+    ])
+    if (articleColumn < 0 || sizeColumn < 0) {
+      continue
+    }
+
+    const descriptionColumn = findColumn(header, descriptionHeaders)
+    const byArticle = new Map<string, TarimaSizeEntry>()
+    for (const [index, row] of rows.slice(1).entries()) {
+      const article = cellText(row[articleColumn]).trim()
+      if (!article) {
+        continue
+      }
+
+      const sizeCode = normalizeTarimaSize(cellText(row[sizeColumn]))
+      if (!sizeCode) {
+        throw new Error(
+          `El tamano de tarima de la fila ${index + 2} no es valido. Use S/1/Sencilla, D/2/Doble o T/3/Triple.`,
+        )
+      }
+
+      byArticle.set(article.toUpperCase(), {
+        article,
+        description: cellText(row[descriptionColumn]).trim(),
+        sizeCode,
+      })
+    }
+
+    return [...byArticle.values()].sort((a, b) => a.article.localeCompare(b.article))
+  }
+
+  throw new Error('No se encontro una hoja con las columnas requeridas: Articulo y Tamano Tarima.')
 }
 
 function parseExpeditionRows(rows: SheetRows): ExpeditionLine[] {
@@ -497,6 +586,20 @@ function parseMonthHeader(text: string): string | undefined {
 
   const year = match[2].length === 2 ? `20${match[2]}` : match[2]
   return `${year}-${monthIndex.toString().padStart(2, '0')}-01`
+}
+
+function normalizeTarimaSize(value: string): string {
+  const token = normalizeHeader(value)
+  if (['s', '1', 'sencilla', 'simple'].includes(token)) {
+    return 'S'
+  }
+  if (['d', '2', 'doble'].includes(token)) {
+    return 'D'
+  }
+  if (['t', '3', 'triple'].includes(token)) {
+    return 'T'
+  }
+  return ''
 }
 
 const monthNames: Record<string, number> = {

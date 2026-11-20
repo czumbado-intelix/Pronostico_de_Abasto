@@ -82,6 +82,38 @@ export function buildArticlePalletKeyFromDetail(article: string, pallet: PalletI
   return buildArticlePalletKey(article, pallet.pallet)
 }
 
+export function resolveStorageOrigin(storageZone: string): string {
+  const normalized = normalizeToken(storageZone)
+  if (
+    normalized.includes('SERVICA') ||
+    normalized.includes('ZA46ZA45') ||
+    normalized.startsWith('ZA46')
+  ) {
+    return 'SERVICA'
+  }
+
+  if (
+    normalized.includes('GUACIMA') ||
+    ['ZA47', 'ZA48', 'ZA49', 'ZA50', 'ZA52', 'ZA55'].some((prefix) =>
+      normalized.startsWith(prefix),
+    )
+  ) {
+    return 'COCO'
+  }
+
+  return 'OTRAS'
+}
+
+export function normalizeToken(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^A-Z0-9]/g, '')
+    .normalize('NFC')
+}
+
 export function parseNumber(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value

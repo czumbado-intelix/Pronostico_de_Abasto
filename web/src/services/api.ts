@@ -5,13 +5,13 @@ const settingsKey = (company: Company) => `pronostico-abasto:settings:${company}
 const transitKey = (company: Company) => `pronostico-abasto:transit:${company}`
 
 export async function loadSettings(company: Company): Promise<AppSettings> {
-  const fallback = readLocal(settingsKey(company), defaultSettings(company))
+  const fallback = normalizeSettings(company, readLocal(settingsKey(company), defaultSettings(company)))
   try {
     const response = await fetch(`/api/settings/${company}`)
     if (!response.ok) {
       return fallback
     }
-    const settings = (await response.json()) as AppSettings
+    const settings = normalizeSettings(company, (await response.json()) as AppSettings)
     writeLocal(settingsKey(company), settings)
     return settings
   } catch {
@@ -126,5 +126,17 @@ function writeLocal<T>(key: string, value: T): void {
     window.localStorage.setItem(key, JSON.stringify(value))
   } catch {
     // Best-effort local cache.
+  }
+}
+
+function normalizeSettings(company: Company, settings: Partial<AppSettings>): AppSettings {
+  const defaults = defaultSettings(company)
+  return {
+    company,
+    satelliteZones: Array.isArray(settings.satelliteZones) ? settings.satelliteZones : defaults.satelliteZones,
+    excludedZones: Array.isArray(settings.excludedZones) ? settings.excludedZones : defaults.excludedZones,
+    thresholds: settings.thresholds ?? defaults.thresholds,
+    preparedArticles: Array.isArray(settings.preparedArticles) ? settings.preparedArticles : [],
+    tarimaSizes: Array.isArray(settings.tarimaSizes) ? settings.tarimaSizes : [],
   }
 }

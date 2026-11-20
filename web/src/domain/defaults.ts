@@ -1,4 +1,4 @@
-import type { AppSettings, Company, CoverageThresholds } from './types'
+import type { AppSettings, CatalogArticle, Company, CoverageThresholds, TarimaSizeEntry } from './types'
 
 export const companies: Company[] = ['EPA', 'Cofersa']
 
@@ -20,11 +20,17 @@ export const defaultThresholds: CoverageThresholds = {
   healthyPercent: 100,
 }
 
+export const defaultPreparedArticles: CatalogArticle[] = []
+
+export const defaultTarimaSizes: TarimaSizeEntry[] = []
+
 export function defaultSettings(company: Company): AppSettings {
   return {
     company,
     satelliteZones: [...defaultSatelliteZones],
     excludedZones: [...defaultExcludedZones],
     thresholds: { ...defaultThresholds },
+    preparedArticles: [...defaultPreparedArticles],
+    tarimaSizes: [...defaultTarimaSizes],
   }
 }
