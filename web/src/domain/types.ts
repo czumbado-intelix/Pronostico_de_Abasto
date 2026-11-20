@@ -187,12 +187,16 @@ export interface WarehouseComparisonHistogramBucket {
 
 export interface ScenarioPeriod {
   label: string
+  epaDemand?: number
+  cofersaDemand?: number
   demand: number
   transferLoad: number
 }
 
 export interface ScenarioResult {
   periods: ScenarioPeriod[]
+  hasEpa?: boolean
+  hasCofersa?: boolean
 }
 
 export interface TransitItem {
@@ -237,4 +241,11 @@ export interface LoadedFiles {
   inventory?: InventoryWorkbook
   forecast?: ForecastWorkbook
   expediciones?: ExpedicionesWorkbook
+  comparisonInventory?: InventoryWorkbook
+  comparisonForecast?: ForecastWorkbook
+}
+
+export interface OrderStateEntry {
+  ordered: boolean
+  selectedPalletKeys: string[]
 }

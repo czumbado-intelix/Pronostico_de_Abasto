@@ -266,6 +266,23 @@ input {
   padding: 0;
 }
 
+.search-badge {
+  flex: 0 0 auto;
+  min-height: 24px;
+  border: 1px solid #99f6e4;
+  border-radius: 5px;
+  background: #ccfbf1;
+  color: #115e59;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.search-badge.warn {
+  border-color: #fed7aa;
+  background: #fffbeb;
+  color: #b45309;
+}
+
 .file-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(240px, 0.7fr);
@@ -477,6 +494,51 @@ th {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0;
+}
+
+.column-header {
+  display: grid;
+  gap: 6px;
+  min-width: 112px;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-transform: inherit;
+}
+
+.sort-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sort-button small {
+  color: #008f7a;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.sort-button.active {
+  color: #008f7a;
+}
+
+.column-header input {
+  min-height: 26px;
+  width: 100%;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
 }
 
 tbody tr:hover {
@@ -807,6 +869,11 @@ td input[type="checkbox"] {
     display: flex;
     overflow-x: auto;
     padding-top: 0;
+    scrollbar-width: none;
+  }
+
+  .sidebar nav::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-button {

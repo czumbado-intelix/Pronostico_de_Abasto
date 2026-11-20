@@ -24,6 +24,7 @@ export async function exportTransferWorkbook(args: {
   rows: TransferWorkbookExportRow[]
   preparedArticles?: CatalogArticle[]
   tarimaSizes?: TarimaSizeEntry[]
+  pendingPalletKeys?: Set<string>
   fileName?: string
 }): Promise<void> {
   const preparedSet = new Set((args.preparedArticles ?? []).map((item) => normalizeArticleKey(item.article).toUpperCase()))
@@ -53,11 +54,12 @@ export async function exportTransferWorkbook(args: {
           'Ubicaciones',
           'Zonas externas',
           'Pendiente',
+          'Estado transito',
           'Pedido',
         ]),
         ...regular
           .filter((item) => item.pallets.length > 0)
-          .map((item) => transferSummaryRow(item, preparedSet, tarimaMap)),
+          .map((item) => transferSummaryRow(item, preparedSet, tarimaMap, args.pendingPalletKeys)),
       ],
     },
     {
@@ -76,10 +78,12 @@ export async function exportTransferWorkbook(args: {
           'Ubicaciones',
           'Zonas externas',
           'Pendiente',
+          'Estado transito',
         ]),
-        ...prepared.map((item) => preparedSummaryRow(item, tarimaMap)),
+        ...prepared.map((item) => preparedSummaryRow(item, tarimaMap, args.pendingPalletKeys)),
       ],
     },
+    buildZoneDetailSheet(args.rows),
     ...buildOriginSheets(regular, tarimaMap),
   ]
 
@@ -141,6 +145,7 @@ function transferSummaryRow(
   item: TransferWorkbookExportRow,
   preparedSet: Set<string>,
   tarimaMap: Map<string, string>,
+  pendingPalletKeys?: Set<string>,
 ): Row {
   const row = item.row
   const transferQuantity = item.pallets.reduce((sum, pallet) => sum + pallet.quantity, 0)
@@ -159,12 +164,18 @@ function transferSummaryRow(
     text(describeLocations(item.pallets)),
     text(describeZones(row)),
     number(Math.max(0, row.calculatedTransferNeedQuantity - transferQuantity)),
+    text(transitState(row.article, item.pallets, pendingPalletKeys)),
     text(item.ordered ? 'Si' : 'No'),
   ]
 }
 
-function preparedSummaryRow(item: TransferWorkbookExportRow, tarimaMap: Map<string, string>): Row {
+function preparedSummaryRow(
+  item: TransferWorkbookExportRow,
+  tarimaMap: Map<string, string>,
+  pendingPalletKeys?: Set<string>,
+): Row {
   const row = item.row
+  const transferQuantity = item.pallets.reduce((sum, pallet) => sum + pallet.quantity, 0)
   return [
     text(row.article),
     text(row.description),
@@ -176,8 +187,38 @@ function preparedSummaryRow(item: TransferWorkbookExportRow, tarimaMap: Map<stri
     text(describePallets(item.pallets)),
     text(describeLocations(item.pallets)),
     text(describeZones(row)),
-    number(row.remainingShortageAfterTransfer),
+    number(Math.max(0, row.calculatedTransferNeedQuantity - transferQuantity)),
+    text(transitState(row.article, item.pallets, pendingPalletKeys)),
   ]
+}
+
+function buildZoneDetailSheet(rows: TransferWorkbookExportRow[]): { sheet: string; data: Row[] } {
+  return {
+    sheet: 'Detalle por zonas',
+    data: [
+      headerRow(['Articulo', 'Descripcion', 'Zona', 'Cantidad', 'Palets seleccionados']),
+      ...rows.flatMap((item) => {
+        const zones = item.row.satelliteZones.filter((zone) => zone.quantity > 0)
+        const selectedPallets = item.pallets.map((pallet) => pallet.pallet).filter(Boolean).join(', ')
+        if (zones.length === 0) {
+          return [[
+            text(item.row.article),
+            text(item.row.description),
+            text('Sin zona'),
+            number(0),
+            text(selectedPallets),
+          ]]
+        }
+        return zones.map((zone) => [
+          text(item.row.article),
+          text(item.row.description),
+          text(zone.storageZone),
+          number(zone.quantity),
+          text(selectedPallets),
+        ])
+      }),
+    ],
+  }
 }
 
 function buildOriginSheets(
@@ -279,6 +320,24 @@ function describeZones(row: TransferLikeRow): string {
     .sort((a, b) => b.quantity - a.quantity)
     .map((zone) => `${zone.storageZone} (${formatNumber(zone.quantity)})`)
     .join('; ')
+}
+
+function transitState(article: string, pallets: PalletInventoryDetail[], pendingPalletKeys?: Set<string>): string {
+  if (!pendingPalletKeys || pendingPalletKeys.size === 0 || pallets.length === 0) {
+    return 'Disponible'
+  }
+
+  const pendingCount = pallets.filter((pallet) =>
+    pendingPalletKeys.has(`${article.trim().toUpperCase()}|${pallet.pallet.trim().toUpperCase()}`),
+  ).length
+
+  if (pendingCount === 0) {
+    return 'Disponible'
+  }
+  if (pendingCount === pallets.length) {
+    return 'En transito'
+  }
+  return 'Parcial en transito'
 }
 
 function formatNumber(value: number): string {

@@ -1,8 +1,11 @@
 import {
   AlertTriangle,
+  ArrowDownUp,
   BarChart3,
   Check,
   ClipboardList,
+  Copy,
+  Eraser,
   FileSpreadsheet,
   PackageCheck,
   Play,
@@ -37,6 +40,12 @@ import {
   parseTarimaSizesFile,
 } from './domain/excel'
 import { normalizeArticleKey, normalizeSearchText, resolveStorageOrigin } from './domain/normalization'
+import {
+  applyTableControls,
+  type TableColumn,
+  type TableFilters,
+  type TableSort,
+} from './domain/tableControls'
 import type {
   AppSettings,
   ArticleAnalysisResult,
@@ -44,6 +53,7 @@ import type {
   Company,
   ExpeditionLineResult,
   LoadedFiles,
+  OrderStateEntry,
   PalletInventoryDetail,
   TarimaSizeEntry,
   TransitItem,
@@ -51,9 +61,13 @@ import type {
 } from './domain/types'
 import {
   addTransit,
+  loadComparisonComments,
+  loadOrderState,
   loadSettings,
   loadTransit,
   markTransitReceived,
+  saveComparisonComments,
+  saveOrderState,
   saveSettings,
 } from './services/api'
 import './index.css'
@@ -64,17 +78,25 @@ type ExpeditionTab = 'Todos' | 'ParaTraer' | 'Cubiertas' | 'SinSatelite' | 'Alis
 type TransitTab = 'Pendientes' | 'Recibidos' | 'Todos'
 type PalletScope = 'transfer' | 'expedition'
 type AnalysisRow = ArticleAnalysisResult | ExpeditionLineResult
+type TableKey = 'transfer' | 'expedition' | 'comparison' | 'transit'
 
 const formatNumber = new Intl.NumberFormat('es-CR', { maximumFractionDigits: 2 })
 
 function App() {
   const [company, setCompany] = useState<Company>('EPA')
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings('EPA'))
+  const [settingsByCompany, setSettingsByCompany] = useState<Record<Company, AppSettings>>({
+    EPA: defaultSettings('EPA'),
+    Cofersa: defaultSettings('Cofersa'),
+  })
   const [filesByCompany, setFilesByCompany] = useState<Record<Company, LoadedFiles>>({
     EPA: {},
     Cofersa: {},
   })
   const [periodByCompany, setPeriodByCompany] = useState<Record<Company, string>>({
+    EPA: '',
+    Cofersa: '',
+  })
+  const [comparisonPeriodByCompany, setComparisonPeriodByCompany] = useState<Record<Company, string>>({
     EPA: '',
     Cofersa: '',
   })
@@ -93,21 +115,36 @@ function App() {
   const [orderedRows, setOrderedRows] = useState<Record<string, boolean>>({})
   const [selectedPalletKeys, setSelectedPalletKeys] = useState<Record<string, string[]>>({})
   const [comparisonComments, setComparisonComments] = useState<Record<string, string>>({})
+  const [columnFilters, setColumnFilters] = useState<Partial<Record<TableKey, TableFilters>>>({})
+  const [tableSorts, setTableSorts] = useState<Partial<Record<TableKey, TableSort>>>({})
   const [palletPane, setPalletPane] = useState<{ scope: PalletScope; key: string; row: AnalysisRow }>()
 
   const files = filesByCompany[company] ?? {}
+  const settings = settingsByCompany[company]
   const selectedPeriod = periodByCompany[company] || files.forecast?.availablePeriods[0] || ''
+  const comparisonInventory = files.comparisonInventory ?? files.inventory
+  const comparisonForecast = files.comparisonForecast ?? files.forecast
+  const selectedComparisonPeriod =
+    comparisonPeriodByCompany[company] || comparisonForecast?.availablePeriods[0] || ''
+  const activeInventoryFile = view === 'comparativa' ? files.comparisonInventory : files.inventory
+  const activeForecastFile = view === 'comparativa' ? files.comparisonForecast : files.forecast
+  const activePeriods = view === 'comparativa'
+    ? comparisonForecast?.availablePeriods ?? []
+    : files.forecast?.availablePeriods ?? []
+  const activePeriod = view === 'comparativa' ? selectedComparisonPeriod : selectedPeriod
 
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [loadedSettings, loadedTransit] = await Promise.all([
+      const [loadedSettings, loadedTransit, loadedComments] = await Promise.all([
         loadSettings(company),
         loadTransit(company),
+        loadComparisonComments(company),
       ])
       if (!cancelled) {
-        setSettings(loadedSettings)
+        setSettingsByCompany((current) => ({ ...current, [company]: loadedSettings }))
         setTransit(loadedTransit)
+        setComparisonComments(loadedComments)
       }
     }
     void load()
@@ -115,6 +152,25 @@ function App() {
       cancelled = true
     }
   }, [company])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      if (!selectedPeriod) {
+        setOrderedRows({})
+        setSelectedPalletKeys({})
+        return
+      }
+      const state = await loadOrderState(company, selectedPeriod)
+      if (!cancelled) {
+        applyOrderState(state)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [company, selectedPeriod])
 
   const pendingQuantities = useMemo(() => pendingTransitQuantities(transit), [transit])
   const unavailablePalletKeys = useMemo(() => outstandingPalletKeys(transit), [transit])
@@ -124,6 +180,13 @@ function App() {
       ...(files.forecast?.descriptions ?? {}),
     }),
     [files.forecast?.descriptions, files.inventory?.descriptions],
+  )
+  const comparisonDescriptions = useMemo(
+    () => ({
+      ...(comparisonInventory?.descriptions ?? {}),
+      ...(comparisonForecast?.descriptions ?? {}),
+    }),
+    [comparisonForecast?.descriptions, comparisonInventory?.descriptions],
   )
   const preparedSet = useMemo(() => buildArticleSet(settings.preparedArticles), [settings.preparedArticles])
   const tarimaMap = useMemo(() => buildTarimaMap(settings.tarimaSizes), [settings.tarimaSizes])
@@ -180,53 +243,61 @@ function App() {
   ])
 
   const comparisonResult = useMemo(() => {
-    if (!files.inventory || !files.forecast || !selectedPeriod) {
+    if (!comparisonInventory || !comparisonForecast || !selectedComparisonPeriod) {
       return undefined
     }
 
     return analyzeWarehouseComparison({
-      inventory: files.inventory.positions,
-      forecast: files.forecast.entries,
-      selectedPeriod,
-      availablePeriods: files.forecast.availablePeriods,
+      inventory: comparisonInventory.positions,
+      forecast: comparisonForecast.entries,
+      selectedPeriod: selectedComparisonPeriod,
+      availablePeriods: comparisonForecast.availablePeriods,
       ignoredStorageZones: [],
-      descriptions,
-      granularity: files.forecast.granularity,
+      descriptions: comparisonDescriptions,
+      granularity: comparisonForecast.granularity,
     })
-  }, [descriptions, files.forecast, files.inventory, selectedPeriod])
+  }, [comparisonDescriptions, comparisonForecast, comparisonInventory, selectedComparisonPeriod])
 
-  const comparisonRows = useMemo(
+  const comparisonColumns = useMemo<TableColumn<WarehouseComparisonRow>[]>(
+    () => [
+      { key: 'article', label: 'Articulo', text: (row) => row.article },
+      { key: 'description', label: 'Descripcion', text: (row) => row.description },
+      { key: 'olo', label: 'Inv OLO', text: (row) => formatNumber.format(row.oloQuantity), number: (row) => row.oloQuantity },
+      { key: 'servica', label: 'Inv Servica', text: (row) => formatNumber.format(row.servicaQuantity), number: (row) => row.servicaQuantity },
+      { key: 'forecast', label: 'Forecast', text: (row) => formatNumber.format(row.forecastQuantity), number: (row) => row.forecastQuantity },
+      { key: 'coverage', label: 'Cobertura', text: (row) => row.coveragePeriods === undefined ? '-' : `${formatNumber.format(row.coveragePeriods)} per.`, number: (row) => row.coveragePeriods },
+      { key: 'comments', label: 'Comentarios', text: (row) => comparisonComments[row.article] ?? row.automaticComment },
+    ],
+    [comparisonComments],
+  )
+
+  const comparisonSearchRows = useMemo(
     () =>
       filterComparisonRows(
         (comparisonResult?.rows ?? []).filter((row) => row.servicaQuantity > 0),
         searchText,
+        comparisonComments,
       ),
-    [comparisonResult?.rows, searchText],
+    [comparisonComments, comparisonResult?.rows, searchText],
+  )
+
+  const comparisonRows = useMemo(
+    () => applyTableControls(comparisonSearchRows, comparisonColumns, columnFilters.comparison, tableSorts.comparison),
+    [columnFilters.comparison, comparisonColumns, comparisonSearchRows, tableSorts.comparison],
   )
   const histogram = useMemo(
     () =>
       buildWarehouseComparisonHistogram(
         comparisonRows,
         comparisonResult?.periodCount ?? 0,
-        files.forecast?.granularity === 'Monthly' ? 'mes' : 'sem',
+        comparisonForecast?.granularity === 'Monthly' ? 'mes' : 'sem',
       ),
-    [comparisonResult?.periodCount, comparisonRows, files.forecast?.granularity],
+    [comparisonForecast?.granularity, comparisonResult?.periodCount, comparisonRows],
   )
 
   const scenario = useMemo(() => {
-    if (!files.inventory || !files.forecast || !selectedPeriod) {
-      return { periods: [] }
-    }
-    return simulateScenario({
-      inventory: files.inventory.positions,
-      forecast: files.forecast.entries,
-      availablePeriods: files.forecast.availablePeriods,
-      selectedPeriod,
-      horizonMonths: scenarioMonths,
-      safetyBufferPercent: scenarioBuffer,
-      satelliteZones: settings.satelliteZones,
-    })
-  }, [files.forecast, files.inventory, scenarioBuffer, scenarioMonths, selectedPeriod, settings.satelliteZones])
+    return simulateCombinedScenario(filesByCompany, periodByCompany, settingsByCompany, scenarioMonths, scenarioBuffer)
+  }, [filesByCompany, periodByCompany, scenarioBuffer, scenarioMonths, settingsByCompany])
 
   const transferBaseRows = useMemo(
     () =>
@@ -239,7 +310,22 @@ function App() {
     [weeklyResult?.articles],
   )
 
-  const transferRows = useMemo(
+  const transferColumns: TableColumn<ArticleAnalysisResult>[] = [
+    { key: 'article', label: 'Articulo', text: (row) => row.article },
+    { key: 'description', label: 'Descripcion', text: (row) => row.description },
+    { key: 'coverage', label: 'Cobertura', text: (row) => coverageText(row.coveragePeriods, weeklyResult?.analyzedPeriods ?? 0), number: (row) => row.coveragePeriods },
+    { key: 'forecast', label: 'Forecast', text: (row) => formatNumber.format(row.forecastQuantity), number: (row) => row.forecastQuantity },
+    { key: 'principal', label: 'Principal', text: (row) => formatNumber.format(row.principalInventoryQuantity), number: (row) => row.principalInventoryQuantity },
+    { key: 'external', label: 'Stock ext.', text: (row) => formatNumber.format(row.satelliteInventoryQuantity), number: (row) => row.satelliteInventoryQuantity },
+    { key: 'transit', label: 'Transito', text: (row) => formatNumber.format(row.pendingTransitQuantity), number: (row) => row.pendingTransitQuantity },
+    { key: 'transfer', label: 'A traer', text: (row) => formatNumber.format(selectedQuantity(row)), number: (row) => selectedQuantity(row) },
+    { key: 'pallets', label: 'Palets', text: (row) => selectedPallets(row).map((pallet) => pallet.pallet).join(' '), number: (row) => selectedPallets(row).length },
+    { key: 'tarima', label: 'Tarima', text: (row) => tarimaFor(row.article) },
+    { key: 'prepared', label: 'Alistado', text: (row) => (isPrepared(row, preparedSet) ? 'Si' : 'No') },
+    { key: 'zones', label: 'Zonas', text: formatZones },
+  ]
+
+  const transferSearchRows = useMemo(
     () =>
       filterTransferRows(
         transferBaseRows,
@@ -249,6 +335,8 @@ function App() {
       ),
     [preparedSet, searchText, selectedTransferTab, transferBaseRows],
   )
+
+  const transferRows = applyTableControls(transferSearchRows, transferColumns, columnFilters.transfer, tableSorts.transfer)
 
   const expeditionBaseRows = useMemo(
     () =>
@@ -261,7 +349,22 @@ function App() {
     [expedicionesResult?.lines],
   )
 
-  const expeditionRows = useMemo(
+  const expeditionColumns: TableColumn<ExpeditionLineResult>[] = [
+    { key: 'expedition', label: 'Expedicion', text: (row) => row.expeditionNumber },
+    { key: 'article', label: 'Articulo', text: (row) => row.article },
+    { key: 'description', label: 'Descripcion', text: (row) => row.description },
+    { key: 'demand', label: 'Solicitud', text: (row) => formatNumber.format(row.demandQuantity), number: (row) => row.demandQuantity },
+    { key: 'principal', label: 'Principal', text: (row) => formatNumber.format(row.principalInventoryQuantity), number: (row) => row.principalInventoryQuantity },
+    { key: 'external', label: 'Externas', text: (row) => formatNumber.format(row.satelliteInventoryQuantity), number: (row) => row.satelliteInventoryQuantity },
+    { key: 'transit', label: 'Transito', text: (row) => formatNumber.format(row.pendingTransitQuantity), number: (row) => row.pendingTransitQuantity },
+    { key: 'transfer', label: 'A traer', text: (row) => formatNumber.format(selectedQuantity(row)), number: (row) => selectedQuantity(row) },
+    { key: 'pallets', label: 'Palets', text: (row) => selectedPallets(row).map((pallet) => pallet.pallet).join(' '), number: (row) => selectedPallets(row).length },
+    { key: 'tarima', label: 'Tarima', text: (row) => tarimaFor(row.article) },
+    { key: 'status', label: 'Estado', text: (row) => expeditionStatus(row, isPrepared(row, preparedSet)) },
+    { key: 'pending', label: 'Pendiente', text: (row) => formatNumber.format(Math.max(0, row.calculatedTransferNeedQuantity - selectedQuantity(row))), number: (row) => Math.max(0, row.calculatedTransferNeedQuantity - selectedQuantity(row)) },
+  ]
+
+  const expeditionSearchRows = useMemo(
     () =>
       filterExpeditionRows(
         expeditionBaseRows,
@@ -272,12 +375,34 @@ function App() {
     [expeditionBaseRows, preparedSet, searchText, selectedExpeditionTab],
   )
 
+  const expeditionRows = applyTableControls(expeditionSearchRows, expeditionColumns, columnFilters.expedition, tableSorts.expedition)
+
   const orderedTransferRows = transferBaseRows.filter(
     (row) => orderedRows[rowKey('transfer', row)] && canOrder(row, preparedSet) && selectedPallets(row).length > 0,
   )
   const orderedExpeditionRows = expeditionBaseRows.filter(
     (row) => orderedRows[rowKey('expedition', row)] && canOrder(row, preparedSet) && selectedPallets(row).length > 0,
   )
+
+  const searchSummary = useMemo(() => {
+    if (view === 'traslados') {
+      return summarizeSearch(transferBaseRows, searchText, (row) => rowSearchHaystack(row))
+    }
+    if (view === 'expediciones') {
+      return summarizeSearch(expeditionBaseRows, searchText, (row) => rowSearchHaystack(row))
+    }
+    if (view === 'comparativa') {
+      return summarizeSearch(
+        (comparisonResult?.rows ?? []).filter((row) => row.servicaQuantity > 0),
+        searchText,
+        (row) => `${row.article} ${row.description} ${comparisonComments[row.article] ?? row.automaticComment}`,
+      )
+    }
+    if (view === 'transito') {
+      return summarizeSearch(transit, searchText, transitSearchHaystack)
+    }
+    return { badge: '', detail: '', unmatched: [] }
+  }, [comparisonComments, comparisonResult?.rows, expeditionBaseRows, searchText, transferBaseRows, transit, view])
 
   async function handleInventory(file: File) {
     await runBusy('Leyendo inventario...', async () => {
@@ -294,6 +419,25 @@ function App() {
       setPeriodByCompany((current) => ({ ...current, [company]: forecast.availablePeriods[0] ?? '' }))
       setNotice(
         `Forecast cargado: ${forecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
+      )
+    })
+  }
+
+  async function handleComparisonInventory(file: File) {
+    await runBusy('Leyendo inventario de comparativa...', async () => {
+      const comparisonInventory = await parseInventoryFile(file)
+      updateCompanyFiles((current) => ({ ...current, comparisonInventory }))
+      setNotice(`Inventario de comparativa cargado: ${comparisonInventory.positions.length.toLocaleString('es-CR')} filas.`)
+    })
+  }
+
+  async function handleComparisonForecast(file: File) {
+    await runBusy('Leyendo forecast de comparativa...', async () => {
+      const comparisonForecast = await parseForecastFile(file)
+      updateCompanyFiles((current) => ({ ...current, comparisonForecast }))
+      setComparisonPeriodByCompany((current) => ({ ...current, [company]: comparisonForecast.availablePeriods[0] ?? '' }))
+      setNotice(
+        `Forecast de comparativa cargado: ${comparisonForecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
       )
     })
   }
@@ -341,6 +485,33 @@ function App() {
     }))
   }
 
+  function applyOrderState(state: Record<string, OrderStateEntry>) {
+    setOrderedRows(
+      Object.fromEntries(
+        Object.entries(state)
+          .filter(([, entry]) => entry.ordered)
+          .map(([key]) => [key, true]),
+      ),
+    )
+    setSelectedPalletKeys(
+      Object.fromEntries(
+        Object.entries(state)
+          .filter(([, entry]) => entry.selectedPalletKeys.length > 0)
+          .map(([key, entry]) => [key, entry.selectedPalletKeys]),
+      ),
+    )
+  }
+
+  function persistOrderState(
+    nextOrderedRows: Record<string, boolean>,
+    nextSelectedPalletKeys: Record<string, string[]>,
+  ) {
+    if (!selectedPeriod) {
+      return
+    }
+    void saveOrderState(company, selectedPeriod, buildOrderState(nextOrderedRows, nextSelectedPalletKeys))
+  }
+
   function selectedPallets(row: AnalysisRow): PalletInventoryDetail[] {
     const key = rowKey(isExpedition(row) ? 'expedition' : 'transfer', row)
     const available = availablePallets(row)
@@ -357,10 +528,14 @@ function App() {
   }
 
   function setPalletSelection(key: string, pallets: PalletInventoryDetail[]) {
-    setSelectedPalletKeys((current) => ({
-      ...current,
-      [key]: pallets.map(palletIdentity),
-    }))
+    setSelectedPalletKeys((current) => {
+      const next = {
+        ...current,
+        [key]: pallets.map(palletIdentity),
+      }
+      persistOrderState(orderedRows, next)
+      return next
+    })
   }
 
   function selectFifoForQuantity(row: AnalysisRow, key: string, quantity: number) {
@@ -380,7 +555,11 @@ function App() {
 
   function toggleOrdered(scope: PalletScope, row: AnalysisRow, value: boolean) {
     const key = rowKey(scope, row)
-    setOrderedRows((current) => ({ ...current, [key]: value }))
+    setOrderedRows((current) => {
+      const next = { ...current, [key]: value }
+      persistOrderState(next, selectedPalletKeys)
+      return next
+    })
   }
 
   async function sendMarkedToTransit(scope: PalletScope) {
@@ -404,9 +583,15 @@ function App() {
     const saved = await addTransit(company, items)
     setTransit(saved)
     const sentKeys = new Set(rows.map((row) => rowKey(scope, row)))
-    setOrderedRows((current) =>
-      Object.fromEntries(Object.entries(current).filter(([key]) => !sentKeys.has(key))),
-    )
+    setOrderedRows((current) => {
+      const nextOrdered = Object.fromEntries(Object.entries(current).filter(([key]) => !sentKeys.has(key)))
+      setSelectedPalletKeys((selected) => {
+        const nextSelected = Object.fromEntries(Object.entries(selected).filter(([key]) => !sentKeys.has(key)))
+        persistOrderState(nextOrdered, nextSelected)
+        return nextSelected
+      })
+      return nextOrdered
+    })
     setNotice(`${items.length.toLocaleString('es-CR')} pallet(s) agregados a Transito.`)
   }
 
@@ -435,9 +620,9 @@ function App() {
       preparedArticles: normalizeCatalogArticles(next.preparedArticles),
       tarimaSizes: normalizeTarimaSizes(next.tarimaSizes),
     }
-    setSettings(normalized)
+    setSettingsByCompany((current) => ({ ...current, [company]: normalized }))
     const saved = await saveSettings(normalized)
-    setSettings(saved)
+    setSettingsByCompany((current) => ({ ...current, [company]: saved }))
     setNotice('Ajustes guardados.')
   }
 
@@ -454,6 +639,7 @@ function App() {
       periodLabel: selectedPeriod,
       preparedArticles: settings.preparedArticles,
       tarimaSizes: settings.tarimaSizes,
+      pendingPalletKeys: unavailablePalletKeys,
       rows: sourceRows.map((row): TransferWorkbookExportRow => ({
         row,
         pallets: selectedPallets(row),
@@ -478,6 +664,62 @@ function App() {
       fileName: `${company}-comparativa-${todayKey()}.xlsx`,
     })
     setNotice('Comparativa exportada.')
+  }
+
+  function updateComparisonComment(article: string, comment: string) {
+    setComparisonComments((current) => {
+      const next = { ...current, [article]: comment }
+      if (!comment.trim()) {
+        delete next[article]
+      }
+      void saveComparisonComments(company, next)
+      return next
+    })
+  }
+
+  function clearComparisonComments() {
+    setComparisonComments({})
+    void saveComparisonComments(company, {})
+    setNotice('Comentarios de comparativa limpiados.')
+  }
+
+  async function copyText(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setNotice(`${label} copiado al portapapeles.`)
+    } catch {
+      setNotice('No se pudo copiar al portapapeles.')
+    }
+  }
+
+  function setColumnFilter(table: TableKey, column: string, value: string) {
+    setColumnFilters((current) => ({
+      ...current,
+      [table]: {
+        ...(current[table] ?? {}),
+        [column]: value,
+      },
+    }))
+  }
+
+  function toggleTableSort(table: TableKey, column: string) {
+    setTableSorts((current) => {
+      const currentSort = current[table]
+      const direction = currentSort?.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc'
+      return {
+        ...current,
+        [table]: { column, direction },
+      }
+    })
+  }
+
+  function clearTableControls(table: TableKey) {
+    setColumnFilters((current) => ({ ...current, [table]: {} }))
+    setTableSorts((current) => {
+      const next = { ...current }
+      delete next[table]
+      return next
+    })
   }
 
   function tarimaFor(article: string): string {
@@ -557,24 +799,62 @@ function App() {
               <input
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
+                onPaste={(event) => {
+                  const pasted = event.clipboardData.getData('text')
+                  const flattened = flattenPastedSearch(pasted)
+                  if (flattened && flattened !== pasted.trim()) {
+                    event.preventDefault()
+                    setSearchText(insertAtSelection(event.currentTarget, flattened))
+                  }
+                }}
                 placeholder="Buscar articulo, pallet, zona..."
               />
+              {searchSummary.badge && (
+                <button
+                  className={searchSummary.unmatched.length > 0 ? 'search-badge warn' : 'search-badge'}
+                  title={searchSummary.detail}
+                  type="button"
+                  onClick={() => {
+                    if (searchSummary.unmatched.length > 0) {
+                      void copyText(searchSummary.unmatched.join('\n'), 'Codigos sin resultado')
+                    }
+                  }}
+                >
+                  {searchSummary.badge}
+                </button>
+              )}
             </div>
           </div>
         </header>
 
         <section className="file-strip" aria-label="Carga de archivos">
-          <FileLoader icon={<FileSpreadsheet size={18} />} title="Inventario" loaded={Boolean(files.inventory)} onFile={handleInventory} />
-          <FileLoader icon={<Upload size={18} />} title="Forecast" loaded={Boolean(files.forecast)} onFile={handleForecast} />
-          <FileLoader icon={<ClipboardList size={18} />} title="Expediciones" loaded={Boolean(files.expediciones)} onFile={handleExpediciones} />
+          <FileLoader
+            icon={<FileSpreadsheet size={18} />}
+            title={view === 'comparativa' ? 'Inventario comparativa' : 'Inventario'}
+            loaded={Boolean(activeInventoryFile)}
+            onFile={view === 'comparativa' ? handleComparisonInventory : handleInventory}
+          />
+          <FileLoader
+            icon={<Upload size={18} />}
+            title={view === 'comparativa' ? 'Forecast comparativa' : 'Forecast'}
+            loaded={Boolean(activeForecastFile)}
+            onFile={view === 'comparativa' ? handleComparisonForecast : handleForecast}
+          />
+          {view !== 'comparativa' && (
+            <FileLoader icon={<ClipboardList size={18} />} title="Expediciones" loaded={Boolean(files.expediciones)} onFile={handleExpediciones} />
+          )}
           <div className="period-controls">
             <label>
               Periodo
               <select
-                value={selectedPeriod}
-                onChange={(event) => setPeriodByCompany((current) => ({ ...current, [company]: event.target.value }))}
+                value={activePeriod}
+                onChange={(event) =>
+                  view === 'comparativa'
+                    ? setComparisonPeriodByCompany((current) => ({ ...current, [company]: event.target.value }))
+                    : setPeriodByCompany((current) => ({ ...current, [company]: event.target.value }))
+                }
               >
-                {(files.forecast?.availablePeriods ?? []).map((period) => (
+                {activePeriods.map((period) => (
                   <option key={period} value={period}>
                     {period}
                   </option>
@@ -613,6 +893,13 @@ function App() {
             orderedRows={orderedRows}
             selectedQuantity={selectedQuantity}
             selectedPallets={selectedPallets}
+            columns={transferColumns}
+            filters={columnFilters.transfer ?? {}}
+            sort={tableSorts.transfer}
+            onFilter={(column, value) => setColumnFilter('transfer', column, value)}
+            onSort={(column) => toggleTableSort('transfer', column)}
+            onClearTable={() => clearTableControls('transfer')}
+            onCopy={(row) => void copyText(copyTransferRow(row, selectedQuantity(row), selectedPallets(row), tarimaFor(row.article), isPrepared(row, preparedSet)), 'Fila de traslado')}
             onToggleOrdered={(row, value) => toggleOrdered('transfer', row, value)}
             onOpenPallets={(row) => setPalletPane({ scope: 'transfer', key: rowKey('transfer', row), row })}
             onSend={(row) => void sendSingleToTransit('transfer', row)}
@@ -632,6 +919,14 @@ function App() {
             orderedRows={orderedRows}
             selectedQuantity={selectedQuantity}
             selectedPallets={selectedPallets}
+            columns={expeditionColumns}
+            filters={columnFilters.expedition ?? {}}
+            sort={tableSorts.expedition}
+            onFilter={(column, value) => setColumnFilter('expedition', column, value)}
+            onSort={(column) => toggleTableSort('expedition', column)}
+            onClearTable={() => clearTableControls('expedition')}
+            onCopy={(row) => void copyText(copyExpeditionRow(row, selectedQuantity(row), selectedPallets(row), tarimaFor(row.article), isPrepared(row, preparedSet)), 'Fila de expedicion')}
+            onCopyExpeditions={(row) => void copyText(splitExpeditionNumbers(row.expeditionNumber).join('\n'), 'Expediciones')}
             onToggleOrdered={(row, value) => toggleOrdered('expedition', row, value)}
             onOpenPallets={(row) => setPalletPane({ scope: 'expedition', key: rowKey('expedition', row), row })}
             onSend={(row) => void sendSingleToTransit('expedition', row)}
@@ -644,6 +939,12 @@ function App() {
             items={transit}
             tab={transitTab}
             onTab={setTransitTab}
+            filters={columnFilters.transit ?? {}}
+            sort={tableSorts.transit}
+            onFilter={(column, value) => setColumnFilter('transit', column, value)}
+            onSort={(column) => toggleTableSort('transit', column)}
+            onClearTable={() => clearTableControls('transit')}
+            onCopy={(row) => void copyText(copyTransitRow(row), 'Fila de transito')}
             onReceive={receiveTransit}
             onReceiveVisible={receiveVisibleTransit}
           />
@@ -656,7 +957,15 @@ function App() {
             onMode={setComparisonMode}
             histogram={histogram}
             comments={comparisonComments}
-            onComment={(article, comment) => setComparisonComments((current) => ({ ...current, [article]: comment }))}
+            columns={comparisonColumns}
+            filters={columnFilters.comparison ?? {}}
+            sort={tableSorts.comparison}
+            onFilter={(column, value) => setColumnFilter('comparison', column, value)}
+            onSort={(column) => toggleTableSort('comparison', column)}
+            onClearTable={() => clearTableControls('comparison')}
+            onClearComments={clearComparisonComments}
+            onCopy={(row) => void copyText(copyComparisonRow(row, comparisonComments[row.article] ?? row.automaticComment), 'Fila de comparativa')}
+            onComment={updateComparisonComment}
             onExport={() => void exportComparison()}
           />
         )}
@@ -749,6 +1058,13 @@ function TransferView(props: {
   orderedRows: Record<string, boolean>
   selectedQuantity: (row: AnalysisRow) => number
   selectedPallets: (row: AnalysisRow) => PalletInventoryDetail[]
+  columns: TableColumn<ArticleAnalysisResult>[]
+  filters: TableFilters
+  sort?: TableSort
+  onFilter: (column: string, value: string) => void
+  onSort: (column: string) => void
+  onClearTable: () => void
+  onCopy: (row: ArticleAnalysisResult) => void
   onToggleOrdered: (row: ArticleAnalysisResult, value: boolean) => void
   onOpenPallets: (row: ArticleAnalysisResult) => void
   onSend: (row: ArticleAnalysisResult) => void
@@ -781,24 +1097,29 @@ function TransferView(props: {
           ['AlistadoSatelital', 'Alistado sat.'],
         ]}
       />
-      <TableActions count={props.rows.length} selected={props.selectedCount} onSend={props.onSendMarked} onExport={props.onExport} />
+      <TableActions
+        count={props.rows.length}
+        selected={props.selectedCount}
+        hasTableControls={hasTableControls(props.filters, props.sort)}
+        onClearTable={props.onClearTable}
+        onSend={props.onSendMarked}
+        onExport={props.onExport}
+      />
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th></th>
-              <th>Articulo</th>
-              <th>Descripcion</th>
-              <th>Cobertura</th>
-              <th>Forecast</th>
-              <th>Principal</th>
-              <th>Stock ext.</th>
-              <th>Transito</th>
-              <th>A traer</th>
-              <th>Palets</th>
-              <th>Tarima</th>
-              <th>Alistado</th>
-              <th>Zonas</th>
+              {props.columns.map((column) => (
+                <ColumnHeader
+                  column={column}
+                  filters={props.filters}
+                  key={column.key}
+                  sort={props.sort}
+                  onFilter={props.onFilter}
+                  onSort={props.onSort}
+                />
+              ))}
               <th></th>
             </tr>
           </thead>
@@ -837,6 +1158,14 @@ function TransferView(props: {
                   <td>
                     <button
                       className="icon-action"
+                      title="Copiar fila"
+                      type="button"
+                      onClick={() => props.onCopy(row)}
+                    >
+                      <Copy size={16} />
+                    </button>
+                    <button
+                      className="icon-action"
                       disabled={!canOrder(row, props.preparedSet)}
                       type="button"
                       onClick={() => props.onSend(row)}
@@ -865,6 +1194,14 @@ function ExpedicionesView(props: {
   orderedRows: Record<string, boolean>
   selectedQuantity: (row: AnalysisRow) => number
   selectedPallets: (row: AnalysisRow) => PalletInventoryDetail[]
+  columns: TableColumn<ExpeditionLineResult>[]
+  filters: TableFilters
+  sort?: TableSort
+  onFilter: (column: string, value: string) => void
+  onSort: (column: string) => void
+  onClearTable: () => void
+  onCopy: (row: ExpeditionLineResult) => void
+  onCopyExpeditions: (row: ExpeditionLineResult) => void
   onToggleOrdered: (row: ExpeditionLineResult, value: boolean) => void
   onOpenPallets: (row: ExpeditionLineResult) => void
   onSend: (row: ExpeditionLineResult) => void
@@ -896,24 +1233,29 @@ function ExpedicionesView(props: {
           ['AlistadoSatelital', 'Alistado sat.'],
         ]}
       />
-      <TableActions count={props.rows.length} selected={props.selectedCount} onSend={props.onSendMarked} onExport={props.onExport} />
+      <TableActions
+        count={props.rows.length}
+        selected={props.selectedCount}
+        hasTableControls={hasTableControls(props.filters, props.sort)}
+        onClearTable={props.onClearTable}
+        onSend={props.onSendMarked}
+        onExport={props.onExport}
+      />
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th></th>
-              <th>Expedicion</th>
-              <th>Articulo</th>
-              <th>Descripcion</th>
-              <th>Solicitud</th>
-              <th>Principal</th>
-              <th>Externas</th>
-              <th>Transito</th>
-              <th>A traer</th>
-              <th>Palets</th>
-              <th>Tarima</th>
-              <th>Estado</th>
-              <th>Pendiente</th>
+              {props.columns.map((column) => (
+                <ColumnHeader
+                  column={column}
+                  filters={props.filters}
+                  key={column.key}
+                  sort={props.sort}
+                  onFilter={props.onFilter}
+                  onSort={props.onSort}
+                />
+              ))}
               <th></th>
             </tr>
           </thead>
@@ -933,7 +1275,11 @@ function ExpedicionesView(props: {
                       onChange={(event) => props.onToggleOrdered(row, event.currentTarget.checked)}
                     />
                   </td>
-                  <td>{row.expeditionNumber || '-'}</td>
+                  <td>
+                    <button className="link-button" type="button" onClick={() => props.onCopyExpeditions(row)}>
+                      {row.expeditionNumber || '-'}
+                    </button>
+                  </td>
                   <td className="mono">{row.article}</td>
                   <td>{row.description || '-'}</td>
                   <td>{formatNumber.format(row.demandQuantity)}</td>
@@ -950,6 +1296,14 @@ function ExpedicionesView(props: {
                   <td><StatusPill tone={prepared ? 'neutral' : row.remainingShortageAfterTransfer > 0 ? 'warn' : 'ok'}>{expeditionStatus(row, prepared)}</StatusPill></td>
                   <td>{formatNumber.format(Math.max(0, row.calculatedTransferNeedQuantity - quantity))}</td>
                   <td>
+                    <button
+                      className="icon-action"
+                      title="Copiar fila"
+                      type="button"
+                      onClick={() => props.onCopy(row)}
+                    >
+                      <Copy size={16} />
+                    </button>
                     <button
                       className="icon-action"
                       disabled={!canOrder(row, props.preparedSet)}
@@ -973,12 +1327,29 @@ function TransitView(props: {
   items: TransitItem[]
   tab: TransitTab
   onTab: (tab: TransitTab) => void
+  filters: TableFilters
+  sort?: TableSort
+  onFilter: (column: string, value: string) => void
+  onSort: (column: string) => void
+  onClearTable: () => void
+  onCopy: (row: TransitItem) => void
   onReceive: (id: string) => void
   onReceiveVisible: (items: TransitItem[]) => void
 }) {
   const pending = props.items.filter((item) => !item.receivedAt && !item.reconciledAt)
   const history = props.items.filter((item) => item.receivedAt || item.reconciledAt)
-  const visible = props.tab === 'Pendientes' ? pending : props.tab === 'Recibidos' ? history : props.items
+  const tabRows = props.tab === 'Pendientes' ? pending : props.tab === 'Recibidos' ? history : props.items
+  const columns: TableColumn<TransitItem>[] = [
+    { key: 'article', label: 'Articulo', text: (row) => row.article },
+    { key: 'description', label: 'Descripcion', text: (row) => row.description },
+    { key: 'pallet', label: 'Pallet', text: (row) => row.pallet },
+    { key: 'quantity', label: 'Cantidad', text: (row) => formatNumber.format(row.quantity), number: (row) => row.quantity },
+    { key: 'origin', label: 'Origen', text: (row) => row.origin || resolveStorageOrigin(row.storageZone) },
+    { key: 'zone', label: 'Zona origen', text: (row) => row.storageZone },
+    { key: 'location', label: 'Ubicacion', text: (row) => row.location },
+    { key: 'status', label: 'Estado', text: (row) => row.receivedAt ? 'Recibido' : 'Pendiente' },
+  ]
+  const visible = applyTableControls(tabRows, columns, props.filters, props.sort)
   return (
     <section className="module">
       <SummaryGrid
@@ -1000,22 +1371,31 @@ function TransitView(props: {
       />
       <div className="table-actions">
         <span>{visible.length.toLocaleString('es-CR')} filas visibles</span>
-        <button className="secondary-button" type="button" onClick={() => props.onReceiveVisible(visible)}>
-          Confirmar visibles
-        </button>
+        <div>
+          {hasTableControls(props.filters, props.sort) && (
+            <button className="secondary-button" type="button" onClick={props.onClearTable}>
+              <Eraser size={16} /> Limpiar filtros
+            </button>
+          )}
+          <button className="secondary-button" type="button" onClick={() => props.onReceiveVisible(visible)}>
+            Confirmar visibles
+          </button>
+        </div>
       </div>
       <div className="table-wrap transit-table">
         <table>
           <thead>
             <tr>
-              <th>Articulo</th>
-              <th>Descripcion</th>
-              <th>Pallet</th>
-              <th>Cantidad</th>
-              <th>Origen</th>
-              <th>Zona origen</th>
-              <th>Ubicacion</th>
-              <th>Estado</th>
+              {columns.map((column) => (
+                <ColumnHeader
+                  column={column}
+                  filters={props.filters}
+                  key={column.key}
+                  sort={props.sort}
+                  onFilter={props.onFilter}
+                  onSort={props.onSort}
+                />
+              ))}
               <th></th>
             </tr>
           </thead>
@@ -1031,6 +1411,9 @@ function TransitView(props: {
                 <td>{item.location}</td>
                 <td><StatusPill tone={item.receivedAt ? 'ok' : 'warn'}>{item.receivedAt ? 'Recibido' : 'Pendiente'}</StatusPill></td>
                 <td>
+                  <button className="icon-action" title="Copiar fila" type="button" onClick={() => props.onCopy(item)}>
+                    <Copy size={16} />
+                  </button>
                   {!item.receivedAt && (
                     <button className="small-button" type="button" onClick={() => props.onReceive(item.id)}>
                       Recibir
@@ -1053,6 +1436,14 @@ function ComparisonView(props: {
   onMode: (mode: 'Tabla' | 'Histograma') => void
   histogram: ReturnType<typeof buildWarehouseComparisonHistogram>
   comments: Record<string, string>
+  columns: TableColumn<WarehouseComparisonRow>[]
+  filters: TableFilters
+  sort?: TableSort
+  onFilter: (column: string, value: string) => void
+  onSort: (column: string) => void
+  onClearTable: () => void
+  onClearComments: () => void
+  onCopy: (row: WarehouseComparisonRow) => void
   onComment: (article: string, comment: string) => void
   onExport: () => void
 }) {
@@ -1082,19 +1473,31 @@ function ComparisonView(props: {
         <button className="secondary-button" type="button" onClick={props.onExport}>
           Exportar comparativa
         </button>
+        {hasTableControls(props.filters, props.sort) && (
+          <button className="secondary-button" type="button" onClick={props.onClearTable}>
+            <Eraser size={16} /> Limpiar filtros
+          </button>
+        )}
+        <button className="secondary-button" type="button" onClick={props.onClearComments}>
+          Limpiar comentarios
+        </button>
       </div>
       {props.mode === 'Tabla' ? (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Articulo</th>
-                <th>Descripcion</th>
-                <th>Inv OLO</th>
-                <th>Inv Servica</th>
-                <th>Forecast</th>
-                <th>Cobertura</th>
-                <th>Comentarios</th>
+                {props.columns.map((column) => (
+                  <ColumnHeader
+                    column={column}
+                    filters={props.filters}
+                    key={column.key}
+                    sort={props.sort}
+                    onFilter={props.onFilter}
+                    onSort={props.onSort}
+                  />
+                ))}
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -1111,6 +1514,11 @@ function ComparisonView(props: {
                       value={props.comments[row.article] ?? row.automaticComment}
                       onChange={(event) => props.onComment(row.article, event.target.value)}
                     />
+                  </td>
+                  <td>
+                    <button className="icon-action" title="Copiar fila" type="button" onClick={() => props.onCopy(row)}>
+                      <Copy size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -1160,13 +1568,21 @@ function SimulationView(props: {
           <RotateCcw size={16} /> Restablecer
         </button>
       </div>
+      <SummaryGrid
+        items={[
+          ['Periodos', props.result.periods.length],
+          ['Demanda EPA', props.result.periods.reduce((sum, period) => sum + (period.epaDemand ?? 0), 0)],
+          ['Demanda Cofersa', props.result.periods.reduce((sum, period) => sum + (period.cofersaDemand ?? 0), 0)],
+          ['Carga traslado', props.result.periods.reduce((sum, period) => sum + period.transferLoad, 0)],
+        ]}
+      />
       <div className="scenario-grid">
         {props.result.periods.map((period) => (
           <div className="scenario-period" key={period.label}>
             <span>{period.label}</span>
             <strong>{formatNumber.format(period.transferLoad)}</strong>
             <div><i style={{ height: `${Math.max(4, (period.transferLoad / maxLoad) * 100)}%` }} /></div>
-            <small>Demanda {formatNumber.format(period.demand)}</small>
+            <small>EPA {formatNumber.format(period.epaDemand ?? 0)} · Cofersa {formatNumber.format(period.cofersaDemand ?? 0)}</small>
           </div>
         ))}
       </div>
@@ -1320,11 +1736,23 @@ function SummaryGrid(props: { items: Array<[string, number]> }) {
   )
 }
 
-function TableActions(props: { count: number; selected: number; onSend: () => void; onExport: () => void }) {
+function TableActions(props: {
+  count: number
+  selected: number
+  hasTableControls: boolean
+  onClearTable: () => void
+  onSend: () => void
+  onExport: () => void
+}) {
   return (
     <div className="table-actions">
       <span>{props.count.toLocaleString('es-CR')} filas visibles · {props.selected.toLocaleString('es-CR')} seleccionadas</span>
       <div>
+        {props.hasTableControls && (
+          <button className="secondary-button" type="button" onClick={props.onClearTable}>
+            <Eraser size={16} /> Limpiar filtros
+          </button>
+        )}
         <button className="secondary-button" type="button" onClick={props.onExport}>
           Exportar requisicion
         </button>
@@ -1333,6 +1761,38 @@ function TableActions(props: { count: number; selected: number; onSend: () => vo
         </button>
       </div>
     </div>
+  )
+}
+
+function ColumnHeader<T>(props: {
+  column: TableColumn<T>
+  filters: TableFilters
+  sort?: TableSort
+  onFilter: (column: string, value: string) => void
+  onSort: (column: string) => void
+}) {
+  const activeSort = props.sort?.column === props.column.key ? props.sort.direction : undefined
+  return (
+    <th>
+      <div className="column-header">
+        <button
+          className={activeSort ? 'sort-button active' : 'sort-button'}
+          title={`Ordenar ${props.column.label}`}
+          type="button"
+          onClick={() => props.onSort(props.column.key)}
+        >
+          <span>{props.column.label}</span>
+          <ArrowDownUp size={13} />
+          {activeSort && <small>{activeSort === 'asc' ? 'Asc' : 'Desc'}</small>}
+        </button>
+        <input
+          aria-label={`Filtrar ${props.column.label}`}
+          value={props.filters[props.column.key] ?? ''}
+          onChange={(event) => props.onFilter(props.column.key, event.target.value)}
+          placeholder="Filtrar"
+        />
+      </div>
+    </th>
   )
 }
 
@@ -1391,34 +1851,208 @@ function filterExpeditionRows(rows: ExpeditionLineResult[], tab: ExpeditionTab, 
 }
 
 function filterRows<T extends AnalysisRow>(rows: T[], text: string): T[] {
-  const query = normalizeSearchText(text)
-  if (!query) {
+  if (!normalizeSearchText(text)) {
     return rows
   }
-  const terms = query.split(' ').filter(Boolean)
-  return rows.filter((row) => {
-    const haystack = normalizeSearchText(
-      [
-        row.article,
-        row.description,
-        availablePallets(row).map((pallet) => `${pallet.pallet} ${pallet.storageZone} ${pallet.location}`).join(' '),
-        row.satelliteZones.map((zone) => zone.storageZone).join(' '),
-        isExpedition(row) ? row.expeditionNumber : '',
-      ].join(' '),
-    )
-    return terms.every((term) => haystack.includes(term))
-  })
+  return rows.filter((row) => matchesSearch(rowSearchHaystack(row), text))
 }
 
-function filterComparisonRows(rows: WarehouseComparisonRow[], text: string): WarehouseComparisonRow[] {
-  const query = normalizeSearchText(text)
-  if (!query) {
+function filterComparisonRows(
+  rows: WarehouseComparisonRow[],
+  text: string,
+  comments: Record<string, string>,
+): WarehouseComparisonRow[] {
+  if (!normalizeSearchText(text)) {
     return rows
   }
-  const terms = query.split(' ').filter(Boolean)
   return rows.filter((row) =>
-    terms.every((term) => normalizeSearchText(`${row.article} ${row.description} ${row.automaticComment}`).includes(term)),
+    matchesSearch(`${row.article} ${row.description} ${comments[row.article] ?? row.automaticComment}`, text),
   )
+}
+
+function rowSearchHaystack(row: AnalysisRow): string {
+  return [
+    row.article,
+    row.description,
+    availablePallets(row).map((pallet) => `${pallet.pallet} ${pallet.storageZone} ${pallet.location}`).join(' '),
+    row.satelliteZones.map((zone) => zone.storageZone).join(' '),
+    isExpedition(row) ? row.expeditionNumber : '',
+  ].join(' ')
+}
+
+function transitSearchHaystack(row: TransitItem): string {
+  return [
+    row.article,
+    row.description,
+    row.pallet,
+    row.quantity,
+    row.origin,
+    row.storageZone,
+    row.location,
+    row.receivedAt ? 'Recibido' : 'Pendiente',
+  ].join(' ')
+}
+
+function parseSearchQuery(text: string): { alternatives: string[]; terms: string[] } {
+  const listParts = text
+    .split(/[\r\n\t,;]+/)
+    .map((part) => normalizeSearchText(part))
+    .filter(Boolean)
+
+  if (listParts.length > 1) {
+    return { alternatives: [...new Set(listParts)], terms: [] }
+  }
+
+  return {
+    alternatives: [],
+    terms: normalizeSearchText(text).split(' ').filter(Boolean),
+  }
+}
+
+function matchesSearch(haystackText: string, text: string): boolean {
+  const haystack = normalizeSearchText(haystackText)
+  const query = parseSearchQuery(text)
+  if (query.alternatives.length > 0) {
+    return query.alternatives.some((alternative) => haystack.includes(alternative))
+  }
+  return query.terms.every((term) => haystack.includes(term))
+}
+
+function summarizeSearch<T>(
+  rows: T[],
+  text: string,
+  haystack: (row: T) => string,
+): { badge: string; detail: string; unmatched: string[] } {
+  const query = parseSearchQuery(text)
+  if (query.alternatives.length === 0) {
+    return { badge: '', detail: '', unmatched: [] }
+  }
+
+  const normalizedRows = rows.map((row) => normalizeSearchText(haystack(row)))
+  const unmatched = query.alternatives.filter((term) => !normalizedRows.some((row) => row.includes(term)))
+  const found = query.alternatives.length - unmatched.length
+  return {
+    badge: `${found}/${query.alternatives.length}`,
+    detail: unmatched.length > 0
+      ? `${unmatched.length.toLocaleString('es-CR')} sin resultado. Toca para copiarlos.`
+      : 'Todos los codigos pegados tienen resultado.',
+    unmatched,
+  }
+}
+
+function flattenPastedSearch(text: string): string {
+  const parts = text.split(/[\r\n\t]+/).map((part) => part.trim()).filter(Boolean)
+  return parts.length > 1 ? parts.join(', ') : text.trim()
+}
+
+function insertAtSelection(input: HTMLInputElement, value: string): string {
+  const current = input.value
+  const start = input.selectionStart ?? current.length
+  const end = input.selectionEnd ?? current.length
+  return `${current.slice(0, start)}${value}${current.slice(end)}`
+}
+
+function hasTableControls(filters: TableFilters, sort?: TableSort): boolean {
+  return Boolean(sort) || Object.values(filters).some((value) => value.trim())
+}
+
+function buildOrderState(
+  orderedRows: Record<string, boolean>,
+  selectedPalletKeys: Record<string, string[]>,
+): Record<string, OrderStateEntry> {
+  const keys = new Set([...Object.keys(orderedRows), ...Object.keys(selectedPalletKeys)])
+  return Object.fromEntries(
+    [...keys]
+      .map((key) => [
+        key,
+        {
+          ordered: Boolean(orderedRows[key]),
+          selectedPalletKeys: selectedPalletKeys[key] ?? [],
+        },
+      ] as const)
+      .filter(([, entry]) => entry.ordered || entry.selectedPalletKeys.length > 0),
+  )
+}
+
+function copyTransferRow(
+  row: ArticleAnalysisResult,
+  quantity: number,
+  pallets: PalletInventoryDetail[],
+  tarima: string,
+  prepared: boolean,
+): string {
+  return toClipboardRow([
+    row.article,
+    row.description,
+    row.coveragePeriods === undefined ? '-' : row.coveragePeriods,
+    row.forecastQuantity,
+    row.principalInventoryQuantity,
+    row.satelliteInventoryQuantity,
+    row.pendingTransitQuantity,
+    quantity,
+    pallets.map((pallet) => pallet.pallet).join(', '),
+    tarima || '-',
+    prepared ? 'Si' : 'No',
+    formatZones(row),
+  ])
+}
+
+function copyExpeditionRow(
+  row: ExpeditionLineResult,
+  quantity: number,
+  pallets: PalletInventoryDetail[],
+  tarima: string,
+  prepared: boolean,
+): string {
+  return toClipboardRow([
+    row.expeditionNumber,
+    row.article,
+    row.description,
+    row.demandQuantity,
+    row.principalInventoryQuantity,
+    row.satelliteInventoryQuantity,
+    row.pendingTransitQuantity,
+    quantity,
+    pallets.map((pallet) => pallet.pallet).join(', '),
+    tarima || '-',
+    expeditionStatus(row, prepared),
+    Math.max(0, row.calculatedTransferNeedQuantity - quantity),
+  ])
+}
+
+function copyTransitRow(row: TransitItem): string {
+  return toClipboardRow([
+    row.article,
+    row.description,
+    row.pallet,
+    row.quantity,
+    row.origin || resolveStorageOrigin(row.storageZone),
+    row.storageZone,
+    row.location,
+    row.receivedAt ? 'Recibido' : 'Pendiente',
+    row.createdAt,
+    row.receivedAt ?? '',
+  ])
+}
+
+function copyComparisonRow(row: WarehouseComparisonRow, comment: string): string {
+  return toClipboardRow([
+    row.article,
+    row.description,
+    row.oloQuantity,
+    row.servicaQuantity,
+    row.forecastQuantity,
+    row.coveragePeriods ?? '-',
+    comment,
+  ])
+}
+
+function toClipboardRow(values: Array<string | number>): string {
+  return values.map((value) => String(value).replace(/\r?\n/g, ' | ')).join('\t')
+}
+
+function splitExpeditionNumbers(value: string): string[] {
+  return value.split(';').map((item) => item.trim()).filter(Boolean)
 }
 
 function canOrder(row: AnalysisRow, preparedSet: Set<string>): boolean {
@@ -1482,6 +2116,66 @@ function buildTransitItem(
     tarimaSize,
     origin: resolveStorageOrigin(pallet.storageZone),
     createdAt: new Date().toISOString(),
+  }
+}
+
+function simulateCombinedScenario(
+  filesByCompany: Record<Company, LoadedFiles>,
+  periodByCompany: Record<Company, string>,
+  settingsByCompany: Record<Company, AppSettings>,
+  horizonMonths: number,
+  safetyBufferPercent: number,
+): ReturnType<typeof simulateScenario> {
+  const byLabel = new Map<string, { label: string; epaDemand: number; cofersaDemand: number; demand: number; transferLoad: number }>()
+  let hasEpa = false
+  let hasCofersa = false
+
+  for (const item of companies) {
+    const files = filesByCompany[item]
+    const selectedPeriod = periodByCompany[item] || files.forecast?.availablePeriods[0] || ''
+    if (!files.inventory || !files.forecast || !selectedPeriod) {
+      continue
+    }
+
+    const result = simulateScenario({
+      inventory: files.inventory.positions,
+      forecast: files.forecast.entries,
+      availablePeriods: files.forecast.availablePeriods,
+      selectedPeriod,
+      horizonMonths,
+      safetyBufferPercent,
+      satelliteZones: settingsByCompany[item].satelliteZones,
+    })
+
+    if (item === 'EPA') {
+      hasEpa = true
+    } else {
+      hasCofersa = true
+    }
+
+    for (const period of result.periods) {
+      const existing = byLabel.get(period.label) ?? {
+        label: period.label,
+        epaDemand: 0,
+        cofersaDemand: 0,
+        demand: 0,
+        transferLoad: 0,
+      }
+      if (item === 'EPA') {
+        existing.epaDemand += period.demand
+      } else {
+        existing.cofersaDemand += period.demand
+      }
+      existing.demand += period.demand
+      existing.transferLoad += period.transferLoad
+      byLabel.set(period.label, existing)
+    }
+  }
+
+  return {
+    periods: [...byLabel.values()],
+    hasEpa,
+    hasCofersa,
   }
 }
 

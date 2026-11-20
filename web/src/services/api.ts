@@ -1,8 +1,10 @@
 import { defaultSettings } from '../domain/defaults'
-import type { AppSettings, Company, TransitItem } from '../domain/types'
+import type { AppSettings, Company, OrderStateEntry, TransitItem } from '../domain/types'
 
 const settingsKey = (company: Company) => `pronostico-abasto:settings:${company}`
 const transitKey = (company: Company) => `pronostico-abasto:transit:${company}`
+const orderStateKey = (company: Company, periodKey: string) => `pronostico-abasto:orders:${company}:${periodKey}`
+const commentsKey = (company: Company) => `pronostico-abasto:comparison-comments:${company}`
 
 export async function loadSettings(company: Company): Promise<AppSettings> {
   const fallback = normalizeSettings(company, readLocal(settingsKey(company), defaultSettings(company)))
@@ -112,6 +114,92 @@ export async function markTransitReceived(company: Company, ids: string[]): Prom
   return local
 }
 
+export async function loadOrderState(company: Company, periodKey: string): Promise<Record<string, OrderStateEntry>> {
+  const fallback = readLocal<Record<string, OrderStateEntry>>(orderStateKey(company, periodKey), {})
+  if (!periodKey) {
+    return {}
+  }
+
+  try {
+    const response = await fetch(`/api/order-state/${company}?period=${encodeURIComponent(periodKey)}`)
+    if (!response.ok) {
+      return fallback
+    }
+    const state = normalizeOrderState((await response.json()) as Record<string, OrderStateEntry>)
+    writeLocal(orderStateKey(company, periodKey), state)
+    return state
+  } catch {
+    return fallback
+  }
+}
+
+export async function saveOrderState(
+  company: Company,
+  periodKey: string,
+  entries: Record<string, OrderStateEntry>,
+): Promise<Record<string, OrderStateEntry>> {
+  const state = normalizeOrderState(entries)
+  writeLocal(orderStateKey(company, periodKey), state)
+  if (!periodKey) {
+    return {}
+  }
+
+  try {
+    const response = await fetch(`/api/order-state/${company}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ periodKey, entries: state }),
+    })
+    if (response.ok) {
+      const saved = normalizeOrderState((await response.json()) as Record<string, OrderStateEntry>)
+      writeLocal(orderStateKey(company, periodKey), saved)
+      return saved
+    }
+  } catch {
+    // Local fallback already persisted.
+  }
+
+  return state
+}
+
+export async function loadComparisonComments(company: Company): Promise<Record<string, string>> {
+  const fallback = readLocal<Record<string, string>>(commentsKey(company), {})
+  try {
+    const response = await fetch(`/api/comparison-comments/${company}`)
+    if (!response.ok) {
+      return fallback
+    }
+    const comments = normalizeComments((await response.json()) as Record<string, string>)
+    writeLocal(commentsKey(company), comments)
+    return comments
+  } catch {
+    return fallback
+  }
+}
+
+export async function saveComparisonComments(
+  company: Company,
+  comments: Record<string, string>,
+): Promise<Record<string, string>> {
+  const normalized = normalizeComments(comments)
+  writeLocal(commentsKey(company), normalized)
+  try {
+    const response = await fetch(`/api/comparison-comments/${company}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ comments: normalized }),
+    })
+    if (response.ok) {
+      const saved = normalizeComments((await response.json()) as Record<string, string>)
+      writeLocal(commentsKey(company), saved)
+      return saved
+    }
+  } catch {
+    // Local fallback already persisted.
+  }
+  return normalized
+}
+
 function readLocal<T>(key: string, fallback: T): T {
   try {
     const raw = window.localStorage.getItem(key)
@@ -127,6 +215,34 @@ function writeLocal<T>(key: string, value: T): void {
   } catch {
     // Best-effort local cache.
   }
+}
+
+function normalizeOrderState(entries: Record<string, OrderStateEntry>): Record<string, OrderStateEntry> {
+  return Object.fromEntries(
+    Object.entries(entries ?? {})
+      .map(([key, entry]) => [
+        key.trim(),
+        {
+          ordered: Boolean(entry?.ordered),
+          selectedPalletKeys: cleanStringList(entry?.selectedPalletKeys),
+        },
+      ] as const)
+      .filter(([key, entry]) => key && (entry.ordered || entry.selectedPalletKeys.length > 0)),
+  )
+}
+
+function normalizeComments(comments: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(comments ?? {})
+      .map(([article, comment]) => [article.trim(), String(comment ?? '').trim()] as const)
+      .filter(([article, comment]) => article && comment),
+  )
+}
+
+function cleanStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.map((item) => String(item).trim()).filter(Boolean))]
+    : []
 }
 
 function normalizeSettings(company: Company, settings: Partial<AppSettings>): AppSettings {
