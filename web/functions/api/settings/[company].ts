@@ -13,14 +13,7 @@ const defaultSatelliteZones = [
   'ZA55-ZA55 - ZONA ALMACENAJE 5 - GUACIMA',
 ]
 
-const defaultExcludedZones = [
-  'ZA23-ZONA ALMACENAJE DE MUELLES EXPEDICION - CLIRO',
-  'ZA30-ZONA ALMACENAJE DANADOS - CLIRO',
-  'ZA38-ZONA ALMACENAJE CONTROL INVENTARIO - CLIRO',
-  'ZA39-ZONA ALMACENAJE CONTENEDOR - CLIRO',
-  'ZA40-ZONA ALMACENAJE TARIMAS - CLIRO',
-  'ZA55-ZA55 - ZONA ALMACENAJE 5 - GUACIMA',
-]
+const defaultExcludedZones: string[] = []
 
 export const onRequestGet: PagesFunction<Env> = async ({ env, params }) => {
   const company = String(params.company ?? 'EPA')
