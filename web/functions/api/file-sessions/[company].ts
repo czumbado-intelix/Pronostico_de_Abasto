@@ -3,7 +3,19 @@ interface Env {
   FILES?: R2Bucket
 }
 
-const fileKinds = ['inventory', 'forecast', 'expediciones', 'comparisonInventory', 'comparisonForecast'] as const
+const fileKinds = [
+  'transferInventory',
+  'transferForecast',
+  'expeditionInventory',
+  'expeditionReport',
+  'simulationInventory',
+  'simulationForecast',
+  'inventory',
+  'forecast',
+  'expediciones',
+  'comparisonInventory',
+  'comparisonForecast',
+] as const
 type FileKind = (typeof fileKinds)[number]
 type StorageBackend = 'd1' | 'r2'
 

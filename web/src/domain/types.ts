@@ -238,6 +238,12 @@ export interface AppSettings {
 }
 
 export interface LoadedFiles {
+  transferInventory?: InventoryWorkbook
+  transferForecast?: ForecastWorkbook
+  expeditionInventory?: InventoryWorkbook
+  expeditionReport?: ExpedicionesWorkbook
+  simulationInventory?: InventoryWorkbook
+  simulationForecast?: ForecastWorkbook
   inventory?: InventoryWorkbook
   forecast?: ForecastWorkbook
   expediciones?: ExpedicionesWorkbook

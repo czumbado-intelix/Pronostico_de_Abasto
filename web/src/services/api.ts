@@ -14,7 +14,19 @@ const transitKey = (company: Company) => `pronostico-abasto:transit:${company}`
 const fileSessionsKey = (company: Company) => `pronostico-abasto:file-sessions:${company}`
 const orderStateKey = (company: Company, periodKey: string) => `pronostico-abasto:orders:${company}:${periodKey}`
 const commentsKey = (company: Company) => `pronostico-abasto:comparison-comments:${company}`
-const fileSessionKinds: FileSessionKind[] = ['inventory', 'forecast', 'expediciones', 'comparisonInventory', 'comparisonForecast']
+const fileSessionKinds: FileSessionKind[] = [
+  'transferInventory',
+  'transferForecast',
+  'expeditionInventory',
+  'expeditionReport',
+  'simulationInventory',
+  'simulationForecast',
+  'inventory',
+  'forecast',
+  'expediciones',
+  'comparisonInventory',
+  'comparisonForecast',
+]
 
 export interface FileSessionState {
   files: LoadedFiles

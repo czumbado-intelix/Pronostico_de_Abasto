@@ -90,6 +90,13 @@ type TransitTab = 'Pendientes' | 'Recibidos' | 'Todos'
 type PalletScope = 'transfer' | 'expedition'
 type AnalysisRow = ArticleAnalysisResult | ExpeditionLineResult
 type TableKey = 'transfer' | 'expedition' | 'comparison' | 'transit'
+type UploadSlot = {
+  kind: FileSessionKind
+  title: string
+  loaded: boolean
+  icon: ReactNode
+  onFile: (file: File) => void | Promise<void>
+}
 
 const formatNumber = new Intl.NumberFormat('es-CR', { maximumFractionDigits: 2 })
 
@@ -119,6 +126,10 @@ function App() {
     EPA: '',
     Cofersa: '',
   })
+  const [simulationPeriodByCompany, setSimulationPeriodByCompany] = useState<Record<Company, string>>({
+    EPA: '',
+    Cofersa: '',
+  })
   const [transit, setTransit] = useState<TransitItem[]>([])
   const [view, setView] = useState<ViewKey>('traslados')
   const [isUploadPanelOpen, setUploadPanelOpen] = useState(false)
@@ -144,17 +155,19 @@ function App() {
   const fileSessions = fileSessionsByCompany[company] ?? []
   const fileStorage = fileStorageByCompany[company] ?? 'd1'
   const settings = settingsByCompany[company]
-  const selectedPeriod = periodByCompany[company] || files.forecast?.availablePeriods[0] || ''
-  const comparisonInventory = files.comparisonInventory ?? files.inventory
-  const comparisonForecast = files.comparisonForecast ?? files.forecast
+  const transferInventory = files.transferInventory ?? files.inventory
+  const transferForecast = files.transferForecast ?? files.forecast
+  const expeditionInventory = files.expeditionInventory
+  const expeditionReport = files.expeditionReport ?? files.expediciones
+  const simulationInventory = files.simulationInventory
+  const simulationForecast = files.simulationForecast
+  const comparisonInventory = files.comparisonInventory
+  const comparisonForecast = files.comparisonForecast
+  const selectedPeriod = periodByCompany[company] || transferForecast?.availablePeriods[0] || ''
   const selectedComparisonPeriod =
     comparisonPeriodByCompany[company] || comparisonForecast?.availablePeriods[0] || ''
-  const activeInventoryFile = view === 'comparativa' ? files.comparisonInventory : files.inventory
-  const activeForecastFile = view === 'comparativa' ? files.comparisonForecast : files.forecast
-  const activePeriods = view === 'comparativa'
-    ? comparisonForecast?.availablePeriods ?? []
-    : files.forecast?.availablePeriods ?? []
-  const activePeriod = view === 'comparativa' ? selectedComparisonPeriod : selectedPeriod
+  const selectedSimulationPeriod =
+    simulationPeriodByCompany[company] || simulationForecast?.availablePeriods[0] || ''
   const displayUserEmail = userEmail || 'Sesion local'
 
   useEffect(() => {
@@ -173,11 +186,18 @@ function App() {
         applyFileSessionState(company, loadedFileState)
         setPeriodByCompany((current) => ({
           ...current,
-          [company]: resolveAvailablePeriod(current[company], loadedFileState.files.forecast?.availablePeriods),
+          [company]: resolveAvailablePeriod(
+            current[company],
+            (loadedFileState.files.transferForecast ?? loadedFileState.files.forecast)?.availablePeriods,
+          ),
         }))
         setComparisonPeriodByCompany((current) => ({
           ...current,
           [company]: resolveAvailablePeriod(current[company], loadedFileState.files.comparisonForecast?.availablePeriods),
+        }))
+        setSimulationPeriodByCompany((current) => ({
+          ...current,
+          [company]: resolveAvailablePeriod(current[company], loadedFileState.files.simulationForecast?.availablePeriods),
         }))
       }
     }
@@ -224,10 +244,10 @@ function App() {
   const unavailablePalletKeys = useMemo(() => outstandingPalletKeys(transit), [transit])
   const descriptions = useMemo(
     () => ({
-      ...(files.inventory?.descriptions ?? {}),
-      ...(files.forecast?.descriptions ?? {}),
+      ...(transferInventory?.descriptions ?? {}),
+      ...(transferForecast?.descriptions ?? {}),
     }),
-    [files.forecast?.descriptions, files.inventory?.descriptions],
+    [transferForecast?.descriptions, transferInventory?.descriptions],
   )
   const comparisonDescriptions = useMemo(
     () => ({
@@ -240,13 +260,13 @@ function App() {
   const tarimaMap = useMemo(() => buildTarimaMap(settings.tarimaSizes), [settings.tarimaSizes])
 
   const weeklyResult = useMemo(() => {
-    if (!files.inventory || !files.forecast || !selectedPeriod) {
+    if (!transferInventory || !transferForecast || !selectedPeriod) {
       return undefined
     }
 
     return analyzeWeeklyForecast({
-      inventory: files.inventory.positions,
-      forecast: files.forecast.entries,
+      inventory: transferInventory.positions,
+      forecast: transferForecast.entries,
       selectedPeriod,
       horizonPeriods,
       thresholds: settings.thresholds,
@@ -254,37 +274,37 @@ function App() {
       ignoredStorageZones: [],
       pendingTransitQuantities: pendingQuantities,
       unavailablePalletKeys,
-      availablePeriods: files.forecast.availablePeriods,
+      availablePeriods: transferForecast.availablePeriods,
       descriptions,
     })
   }, [
     descriptions,
-    files.forecast,
-    files.inventory,
     horizonPeriods,
     pendingQuantities,
     selectedPeriod,
     settings.satelliteZones,
     settings.thresholds,
+    transferForecast,
+    transferInventory,
     unavailablePalletKeys,
   ])
 
   const expedicionesResult = useMemo(() => {
-    if (!files.inventory || !files.expediciones) {
+    if (!expeditionInventory || !expeditionReport) {
       return undefined
     }
 
     return analyzeExpediciones({
-      inventory: files.inventory.positions,
-      lines: files.expediciones.lines,
+      inventory: expeditionInventory.positions,
+      lines: expeditionReport.lines,
       satelliteZones: settings.satelliteZones,
       ignoredStorageZones: [],
       pendingTransitQuantities: pendingQuantities,
       unavailablePalletKeys,
     })
   }, [
-    files.expediciones,
-    files.inventory,
+    expeditionInventory,
+    expeditionReport,
     pendingQuantities,
     settings.satelliteZones,
     unavailablePalletKeys,
@@ -344,8 +364,8 @@ function App() {
   )
 
   const scenario = useMemo(() => {
-    return simulateCombinedScenario(filesByCompany, periodByCompany, settingsByCompany, scenarioMonths, scenarioBuffer)
-  }, [filesByCompany, periodByCompany, scenarioBuffer, scenarioMonths, settingsByCompany])
+    return simulateCombinedScenario(filesByCompany, simulationPeriodByCompany, settingsByCompany, scenarioMonths, scenarioBuffer)
+  }, [filesByCompany, scenarioBuffer, scenarioMonths, settingsByCompany, simulationPeriodByCompany])
 
   const transferBaseRows = useMemo(
     () =>
@@ -452,22 +472,38 @@ function App() {
     return { badge: '', detail: '', unmatched: [] }
   }, [comparisonComments, comparisonResult?.rows, expeditionBaseRows, searchText, transferBaseRows, transit, view])
 
-  async function handleInventory(file: File) {
-    await runBusy('Leyendo inventario...', async () => {
+  async function handleTransferInventory(file: File) {
+    await runBusy('Leyendo inventario de traslados...', async () => {
       const inventory = await parseInventoryFile(file)
-      await persistFileSession('inventory', inventory, file.name)
-      setNotice(`Inventario cargado en la nube: ${inventory.positions.length.toLocaleString('es-CR')} filas.`)
+      await persistFileSession('transferInventory', inventory, file.name)
+      setNotice(`Inventario de traslados cargado en la nube: ${inventory.positions.length.toLocaleString('es-CR')} filas.`)
     })
   }
 
-  async function handleForecast(file: File) {
-    await runBusy('Leyendo forecast...', async () => {
+  async function handleTransferForecast(file: File) {
+    await runBusy('Leyendo forecast de traslados...', async () => {
       const forecast = await parseForecastFile(file)
-      await persistFileSession('forecast', forecast, file.name)
+      await persistFileSession('transferForecast', forecast, file.name)
       setPeriodByCompany((current) => ({ ...current, [company]: forecast.availablePeriods[0] ?? '' }))
       setNotice(
-        `Forecast cargado en la nube: ${forecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
+        `Forecast de traslados cargado en la nube: ${forecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
       )
+    })
+  }
+
+  async function handleExpeditionInventory(file: File) {
+    await runBusy('Leyendo inventario de expediciones...', async () => {
+      const inventory = await parseInventoryFile(file)
+      await persistFileSession('expeditionInventory', inventory, file.name)
+      setNotice(`Inventario de expediciones cargado en la nube: ${inventory.positions.length.toLocaleString('es-CR')} filas.`)
+    })
+  }
+
+  async function handleExpeditionReport(file: File) {
+    await runBusy('Leyendo reporte de expediciones...', async () => {
+      const expediciones = await parseExpedicionesFile(file)
+      await persistFileSession('expeditionReport', expediciones, file.name)
+      setNotice(`Reporte de expediciones cargado en la nube: ${expediciones.lines.length.toLocaleString('es-CR')} lineas faltantes.`)
     })
   }
 
@@ -490,11 +526,22 @@ function App() {
     })
   }
 
-  async function handleExpediciones(file: File) {
-    await runBusy('Leyendo expediciones...', async () => {
-      const expediciones = await parseExpedicionesFile(file)
-      await persistFileSession('expediciones', expediciones, file.name)
-      setNotice(`Expediciones cargadas en la nube: ${expediciones.lines.length.toLocaleString('es-CR')} lineas faltantes.`)
+  async function handleSimulationInventory(file: File) {
+    await runBusy('Leyendo inventario de simulacion...', async () => {
+      const inventory = await parseInventoryFile(file)
+      await persistFileSession('simulationInventory', inventory, file.name)
+      setNotice(`Inventario de simulacion cargado en la nube: ${inventory.positions.length.toLocaleString('es-CR')} filas.`)
+    })
+  }
+
+  async function handleSimulationForecast(file: File) {
+    await runBusy('Leyendo forecast de simulacion...', async () => {
+      const forecast = await parseForecastFile(file)
+      await persistFileSession('simulationForecast', forecast, file.name)
+      setSimulationPeriodByCompany((current) => ({ ...current, [company]: forecast.availablePeriods[0] ?? '' }))
+      setNotice(
+        `Forecast de simulacion cargado en la nube: ${forecast.entries.length.toLocaleString('es-CR')} combinaciones articulo-periodo.`,
+      )
     })
   }
 
@@ -753,11 +800,18 @@ function App() {
       applyFileSessionState(company, restored)
       setPeriodByCompany((current) => ({
         ...current,
-        [company]: resolveAvailablePeriod(current[company], restored.files.forecast?.availablePeriods),
+        [company]: resolveAvailablePeriod(
+          current[company],
+          (restored.files.transferForecast ?? restored.files.forecast)?.availablePeriods,
+        ),
       }))
       setComparisonPeriodByCompany((current) => ({
         ...current,
         [company]: resolveAvailablePeriod(current[company], restored.files.comparisonForecast?.availablePeriods),
+      }))
+      setSimulationPeriodByCompany((current) => ({
+        ...current,
+        [company]: resolveAvailablePeriod(current[company], restored.files.simulationForecast?.availablePeriods),
       }))
       setNotice('Carga restaurada desde el historial.')
     })
@@ -806,6 +860,94 @@ function App() {
     return tarimaMap.get(normalizeArticleKey(article).toUpperCase()) ?? ''
   }
 
+  const uploadSlots: UploadSlot[] = [
+    ...(view === 'traslados'
+      ? [
+        {
+          kind: 'transferInventory' as const,
+          title: 'Inventario',
+          loaded: Boolean(transferInventory),
+          icon: <FileSpreadsheet size={18} />,
+          onFile: handleTransferInventory,
+        },
+        {
+          kind: 'transferForecast' as const,
+          title: 'Forecast',
+          loaded: Boolean(transferForecast),
+          icon: <Upload size={18} />,
+          onFile: handleTransferForecast,
+        },
+      ]
+      : []),
+    ...(view === 'expediciones'
+      ? [
+        {
+          kind: 'expeditionInventory' as const,
+          title: 'Inventario',
+          loaded: Boolean(expeditionInventory),
+          icon: <FileSpreadsheet size={18} />,
+          onFile: handleExpeditionInventory,
+        },
+        {
+          kind: 'expeditionReport' as const,
+          title: 'Expediciones',
+          loaded: Boolean(expeditionReport),
+          icon: <ClipboardList size={18} />,
+          onFile: handleExpeditionReport,
+        },
+      ]
+      : []),
+    ...(view === 'comparativa'
+      ? [
+        {
+          kind: 'comparisonInventory' as const,
+          title: 'Inventario comparativa',
+          loaded: Boolean(comparisonInventory),
+          icon: <FileSpreadsheet size={18} />,
+          onFile: handleComparisonInventory,
+        },
+        {
+          kind: 'comparisonForecast' as const,
+          title: 'Forecast comparativa',
+          loaded: Boolean(comparisonForecast),
+          icon: <Upload size={18} />,
+          onFile: handleComparisonForecast,
+        },
+      ]
+      : []),
+    ...(view === 'simulacion'
+      ? [
+        {
+          kind: 'simulationInventory' as const,
+          title: 'Inventario simulacion',
+          loaded: Boolean(simulationInventory),
+          icon: <FileSpreadsheet size={18} />,
+          onFile: handleSimulationInventory,
+        },
+        {
+          kind: 'simulationForecast' as const,
+          title: 'Forecast simulacion',
+          loaded: Boolean(simulationForecast),
+          icon: <Upload size={18} />,
+          onFile: handleSimulationForecast,
+        },
+      ]
+      : []),
+  ]
+  const historyKinds = uploadSlots.flatMap((slot) => legacyKindsFor(slot.kind))
+  const activePeriods = view === 'comparativa'
+    ? comparisonForecast?.availablePeriods ?? []
+    : view === 'simulacion'
+      ? simulationForecast?.availablePeriods ?? []
+      : view === 'traslados'
+        ? transferForecast?.availablePeriods ?? []
+        : []
+  const activePeriod = view === 'comparativa'
+    ? selectedComparisonPeriod
+    : view === 'simulacion'
+      ? selectedSimulationPeriod
+      : selectedPeriod
+  const canSelectPeriod = activePeriods.length > 0 && ['traslados', 'comparativa', 'simulacion'].includes(view)
   const currentSubtitle = sectionSubtitle(view)
   return (
     <main className="app-shell">
@@ -907,79 +1049,80 @@ function App() {
           </div>
         </header>
 
-        <section className="upload-panel-bar" aria-label="Estado y periodo de trabajo">
-          <button className="secondary-button panel-toggle" type="button" onClick={() => setUploadPanelOpen((open) => !open)}>
-            {isUploadPanelOpen ? <X size={16} /> : <Upload size={16} />}
-            {isUploadPanelOpen ? 'Ocultar panel' : 'Mostrar cargas'}
-          </button>
-          <div className="load-statuses" aria-label="Estado de archivos cargados">
-            <StatusPill tone={activeInventoryFile ? 'ok' : 'warn'}>
-              Inventario {activeInventoryFile ? 'cargado' : 'pendiente'}
-            </StatusPill>
-            <StatusPill tone={activeForecastFile ? 'ok' : 'warn'}>
-              Forecast {activeForecastFile ? 'cargado' : 'pendiente'}
-            </StatusPill>
-            {view !== 'comparativa' && (
-              <StatusPill tone={files.expediciones ? 'ok' : 'warn'}>
-                Expediciones {files.expediciones ? 'cargadas' : 'pendientes'}
-              </StatusPill>
+        {(uploadSlots.length > 0 || canSelectPeriod) && (
+          <section className="upload-panel-bar" aria-label="Estado y periodo de trabajo">
+            {uploadSlots.length > 0 && (
+              <button className="secondary-button panel-toggle" type="button" onClick={() => setUploadPanelOpen((open) => !open)}>
+                {isUploadPanelOpen ? <X size={16} /> : <Upload size={16} />}
+                {isUploadPanelOpen ? 'Ocultar panel' : 'Mostrar cargas'}
+              </button>
             )}
-          </div>
-          <div className="period-controls">
-            <label>
-              Periodo
-              <select
-                value={activePeriod}
-                onChange={(event) =>
-                  view === 'comparativa'
-                    ? setComparisonPeriodByCompany((current) => ({ ...current, [company]: event.target.value }))
-                    : setPeriodByCompany((current) => ({ ...current, [company]: event.target.value }))
-                }
-              >
-                {activePeriods.map((period) => (
-                  <option key={period} value={period}>
-                    {period}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Horizonte
-              <input
-                type="number"
-                min={1}
-                max={26}
-                value={horizonPeriods}
-                onChange={(event) => setHorizonPeriods(Number(event.target.value))}
-              />
-            </label>
-          </div>
-        </section>
+            <div className="load-statuses" aria-label="Estado de archivos cargados">
+              {uploadSlots.map((slot) => (
+                <StatusPill key={slot.kind} tone={slot.loaded ? 'ok' : 'warn'}>
+                  {uploadSlotStatus(slot)}
+                </StatusPill>
+              ))}
+            </div>
+            {canSelectPeriod && (
+              <div className="period-controls">
+                <label>
+                  Periodo
+                  <select
+                    value={activePeriod}
+                    onChange={(event) => {
+                      if (view === 'comparativa') {
+                        setComparisonPeriodByCompany((current) => ({ ...current, [company]: event.target.value }))
+                      } else if (view === 'simulacion') {
+                        setSimulationPeriodByCompany((current) => ({ ...current, [company]: event.target.value }))
+                      } else {
+                        setPeriodByCompany((current) => ({ ...current, [company]: event.target.value }))
+                      }
+                    }}
+                  >
+                    {activePeriods.map((period) => (
+                      <option key={period} value={period}>
+                        {period}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {view === 'traslados' && (
+                  <label>
+                    Horizonte
+                    <input
+                      type="number"
+                      min={1}
+                      max={26}
+                      value={horizonPeriods}
+                      onChange={(event) => setHorizonPeriods(Number(event.target.value))}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
-        {isUploadPanelOpen && (
+        {isUploadPanelOpen && uploadSlots.length > 0 && (
           <>
             <section className="file-strip" aria-label="Carga de archivos">
-              <FileLoader
-                icon={<FileSpreadsheet size={18} />}
-                title={view === 'comparativa' ? 'Inventario comparativa' : 'Inventario'}
-                loaded={Boolean(activeInventoryFile)}
-                onFile={view === 'comparativa' ? handleComparisonInventory : handleInventory}
-              />
-              <FileLoader
-                icon={<Upload size={18} />}
-                title={view === 'comparativa' ? 'Forecast comparativa' : 'Forecast'}
-                loaded={Boolean(activeForecastFile)}
-                onFile={view === 'comparativa' ? handleComparisonForecast : handleForecast}
-              />
-              {view !== 'comparativa' && (
-                <FileLoader icon={<ClipboardList size={18} />} title="Expediciones" loaded={Boolean(files.expediciones)} onFile={handleExpediciones} />
-              )}
+              {uploadSlots.map((slot) => (
+                <FileLoader
+                  icon={slot.icon}
+                  key={slot.kind}
+                  title={slot.title}
+                  loaded={slot.loaded}
+                  onFile={slot.onFile}
+                />
+              ))}
             </section>
 
             <FileSessionHistory
               backupHref={backupUrl(company)}
               sessions={fileSessions}
               storage={fileStorage}
+              visibleKinds={historyKinds}
               onRestore={(versionId) => void restoreFileVersion(versionId)}
             />
           </>
@@ -1158,13 +1301,22 @@ function FileLoader(props: {
   )
 }
 
+function uploadSlotStatus(slot: UploadSlot): string {
+  if (!slot.loaded) {
+    return `${slot.title} pendiente`
+  }
+  return `${slot.title} ${slot.kind === 'expeditionReport' ? 'cargadas' : 'cargado'}`
+}
+
 function FileSessionHistory(props: {
   sessions: FileSessionInfo[]
   storage: 'd1' | 'r2'
   backupHref: string
+  visibleKinds: FileSessionKind[]
   onRestore: (versionId: string) => void
 }) {
-  const visibleSessions = props.sessions.slice(0, 8)
+  const visibleKindSet = new Set(props.visibleKinds)
+  const visibleSessions = props.sessions.filter((session) => visibleKindSet.has(session.kind)).slice(0, 8)
   return (
     <section className="file-history" aria-label="Historial de cargas">
       <div className="file-history-head">
@@ -1203,7 +1355,7 @@ function FileSessionHistory(props: {
           ))}
         </div>
       ) : (
-        <p>No hay cargas guardadas todavia.</p>
+        <p>No hay cargas guardadas para este modulo.</p>
       )}
     </section>
   )
@@ -2283,7 +2435,7 @@ function buildTransitItem(
 
 function simulateCombinedScenario(
   filesByCompany: Record<Company, LoadedFiles>,
-  periodByCompany: Record<Company, string>,
+  simulationPeriodByCompany: Record<Company, string>,
   settingsByCompany: Record<Company, AppSettings>,
   horizonMonths: number,
   safetyBufferPercent: number,
@@ -2294,15 +2446,15 @@ function simulateCombinedScenario(
 
   for (const item of companies) {
     const files = filesByCompany[item]
-    const selectedPeriod = periodByCompany[item] || files.forecast?.availablePeriods[0] || ''
-    if (!files.inventory || !files.forecast || !selectedPeriod) {
+    const selectedPeriod = simulationPeriodByCompany[item] || files.simulationForecast?.availablePeriods[0] || ''
+    if (!files.simulationInventory || !files.simulationForecast || !selectedPeriod) {
       continue
     }
 
     const result = simulateScenario({
-      inventory: files.inventory.positions,
-      forecast: files.forecast.entries,
-      availablePeriods: files.forecast.availablePeriods,
+      inventory: files.simulationInventory.positions,
+      forecast: files.simulationForecast.entries,
+      availablePeriods: files.simulationForecast.availablePeriods,
       selectedPeriod,
       horizonMonths,
       safetyBufferPercent,
@@ -2419,12 +2571,35 @@ function formatTarimaText(items: TarimaSizeEntry[]): string {
 
 function fileSessionLabel(kind: FileSessionKind): string {
   return {
+    transferInventory: 'Inventario traslados',
+    transferForecast: 'Forecast traslados',
+    expeditionInventory: 'Inventario expediciones',
+    expeditionReport: 'Reporte expediciones',
+    simulationInventory: 'Inventario simulacion',
+    simulationForecast: 'Forecast simulacion',
     inventory: 'Inventario',
     forecast: 'Forecast',
     expediciones: 'Expediciones',
     comparisonInventory: 'Inventario comparativa',
     comparisonForecast: 'Forecast comparativa',
   }[kind]
+}
+
+function legacyKindsFor(kind: FileSessionKind): FileSessionKind[] {
+  const legacyFileKindMap: Record<FileSessionKind, FileSessionKind[]> = {
+    transferInventory: ['transferInventory', 'inventory'],
+    transferForecast: ['transferForecast', 'forecast'],
+    expeditionInventory: ['expeditionInventory'],
+    expeditionReport: ['expeditionReport', 'expediciones'],
+    simulationInventory: ['simulationInventory'],
+    simulationForecast: ['simulationForecast'],
+    inventory: ['inventory'],
+    forecast: ['forecast'],
+    expediciones: ['expediciones'],
+    comparisonInventory: ['comparisonInventory'],
+    comparisonForecast: ['comparisonForecast'],
+  }
+  return legacyFileKindMap[kind]
 }
 
 function formatBytes(value: number): string {
