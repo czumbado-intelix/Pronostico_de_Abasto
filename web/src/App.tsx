@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   PackageCheck,
   Play,
+  Plus,
   RotateCcw,
   Search,
   Settings,
@@ -2035,6 +2036,7 @@ function SettingsView(props: {
           rawValue={preparedText}
           variant="prepared"
           onRawChange={setPreparedText}
+          onRowsChange={(rows) => setPreparedText(formatPreparedText(rows as CatalogArticle[]))}
         />
       </div>
       <div className="settings-panel">
@@ -2049,6 +2051,7 @@ function SettingsView(props: {
           rawValue={tarimaText}
           variant="tarima"
           onRawChange={setTarimaText}
+          onRowsChange={(rows) => setTarimaText(formatTarimaText(rows as TarimaSizeEntry[]))}
         />
       </div>
       <button
@@ -2078,12 +2081,73 @@ function CatalogEditor(props: {
   rawValue: string
   variant: 'prepared' | 'tarima'
   onRawChange: (value: string) => void
+  onRowsChange: (rows: Array<CatalogArticle | TarimaSizeEntry>) => void
 }) {
+  const [draftArticle, setDraftArticle] = useState('')
+  const [draftDescription, setDraftDescription] = useState('')
+  const [draftSizeCode, setDraftSizeCode] = useState('S')
   const visibleRows = props.rows.slice(0, 160)
   const hiddenRows = props.rows.length - visibleRows.length
+  const canAdd = draftArticle.trim().length > 0
+  const addRow = () => {
+    const article = draftArticle.trim()
+    if (!article) {
+      return
+    }
+    if (props.variant === 'tarima') {
+      const sizeCode = normalizeTarimaCode(draftSizeCode)
+      if (!sizeCode) {
+        return
+      }
+      props.onRowsChange(normalizeTarimaSizes([
+        ...(props.rows as TarimaSizeEntry[]),
+        { article, description: draftDescription.trim(), sizeCode },
+      ]))
+    } else {
+      props.onRowsChange(normalizeCatalogArticles([
+        ...(props.rows as CatalogArticle[]),
+        { article, description: draftDescription.trim() },
+      ]))
+    }
+    setDraftArticle('')
+    setDraftDescription('')
+    setDraftSizeCode('S')
+  }
+  const removeRow = (article: string) => {
+    props.onRowsChange(props.rows.filter((row) => row.article !== article))
+  }
 
   return (
     <div className="catalog-editor">
+      <form
+        className={`catalog-add-form ${props.variant}`}
+        onSubmit={(event) => {
+          event.preventDefault()
+          addRow()
+        }}
+      >
+        <label className="catalog-field">
+          Articulo
+          <input value={draftArticle} onChange={(event) => setDraftArticle(event.target.value)} placeholder="100000000" />
+        </label>
+        {props.variant === 'tarima' && (
+          <label className="catalog-field size">
+            Tamano
+            <select value={draftSizeCode} onChange={(event) => setDraftSizeCode(event.target.value)}>
+              <option value="S">S</option>
+              <option value="D">D</option>
+              <option value="T">T</option>
+            </select>
+          </label>
+        )}
+        <label className="catalog-field">
+          Descripcion
+          <input value={draftDescription} onChange={(event) => setDraftDescription(event.target.value)} placeholder="Descripcion del articulo" />
+        </label>
+        <button className="catalog-add-button" type="submit" disabled={!canAdd}>
+          <Plus size={15} /> Agregar
+        </button>
+      </form>
       <div className="catalog-toolbar">
         <span className="catalog-count">{formatNumber.format(props.count)} registros</span>
       </div>
@@ -2092,6 +2156,7 @@ function CatalogEditor(props: {
           <span className="catalog-cell article" role="columnheader">Articulo</span>
           {props.variant === 'tarima' && <span className="catalog-cell size" role="columnheader">Tamano</span>}
           <span className="catalog-cell description" role="columnheader">Descripcion</span>
+          <span className="catalog-cell action" role="columnheader" aria-label="Acciones" />
         </div>
         {visibleRows.length === 0 ? (
           <div className="catalog-empty">{props.emptyLabel}</div>
@@ -2105,6 +2170,11 @@ function CatalogEditor(props: {
                 </span>
               )}
               <span className="catalog-cell description" role="cell" title={row.description}>{row.description || '-'}</span>
+              <span className="catalog-cell action" role="cell">
+                <button className="icon-action danger" type="button" title={`Quitar ${row.article}`} onClick={() => removeRow(row.article)}>
+                  <Trash2 size={14} />
+                </button>
+              </span>
             </div>
           ))
         )}

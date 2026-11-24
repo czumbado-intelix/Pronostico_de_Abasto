@@ -1079,6 +1079,70 @@ td input[type="checkbox"] {
   min-width: 0;
 }
 
+.catalog-add-form {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.28fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid #d5e2de;
+  border-radius: 7px;
+  background: #f7fbfa;
+}
+
+.catalog-add-form.tarima {
+  grid-template-columns: minmax(110px, 0.23fr) 82px minmax(0, 1fr) auto;
+}
+
+.catalog-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: #53645f;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.catalog-field input,
+.catalog-field select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #cad8d4;
+  border-radius: 6px;
+  background: #fff;
+  color: #111827;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.catalog-field select {
+  appearance: auto;
+}
+
+.catalog-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px solid #00a88f;
+  border-radius: 6px;
+  background: #00a88f;
+  color: #fff;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.catalog-add-button:disabled {
+  cursor: not-allowed;
+  border-color: #cbd5d1;
+  background: #e5e7eb;
+  color: #71807a;
+}
+
 .catalog-toolbar {
   display: flex;
   align-items: center;
@@ -1119,11 +1183,11 @@ td input[type="checkbox"] {
 }
 
 .catalog-table.prepared .catalog-row {
-  grid-template-columns: minmax(100px, 0.24fr) minmax(0, 1fr);
+  grid-template-columns: minmax(100px, 0.24fr) minmax(0, 1fr) 48px;
 }
 
 .catalog-table.tarima .catalog-row {
-  grid-template-columns: minmax(100px, 0.22fr) 70px minmax(0, 1fr);
+  grid-template-columns: minmax(100px, 0.22fr) 70px minmax(0, 1fr) 48px;
 }
 
 .catalog-head {
@@ -1160,6 +1224,16 @@ td input[type="checkbox"] {
 
 .catalog-cell.description {
   color: #26332f;
+}
+
+.catalog-cell.action {
+  display: flex;
+  justify-content: center;
+  padding: 5px 6px;
+}
+
+.catalog-head .catalog-cell.action {
+  min-height: 30px;
 }
 
 .catalog-cell.size span {
@@ -1215,6 +1289,13 @@ td input[type="checkbox"] {
   line-height: 1.45;
   font-family: "JetBrains Mono", Consolas, monospace;
   font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .catalog-add-form,
+  .catalog-add-form.tarima {
+    grid-template-columns: 1fr;
+  }
 }
 
 @keyframes pulse {
