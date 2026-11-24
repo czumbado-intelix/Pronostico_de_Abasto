@@ -1,4 +1,6 @@
 :root {
+  --sidebar-collapsed: 72px;
+  --sidebar-expanded: 252px;
   color: #000;
   background: #f4f6f8;
   font-family:
@@ -35,19 +37,30 @@ button:disabled {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 236px 1fr;
+  grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr);
   min-height: 100vh;
 }
 
 .sidebar {
   position: sticky;
   top: 0;
+  z-index: 8;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  width: var(--sidebar-collapsed);
   height: 100vh;
+  overflow: hidden;
   background: #fff;
   border-right: 1px solid #e5e7eb;
   padding: 14px 12px;
+  transition:
+    width 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.sidebar:hover {
+  width: var(--sidebar-expanded);
+  box-shadow: 14px 0 36px rgb(15 23 42 / 0.1);
 }
 
 .brand-block {
@@ -57,6 +70,7 @@ button:disabled {
   min-height: 58px;
   padding: 6px 6px 14px;
   border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
 }
 
 .brand-block img {
@@ -72,6 +86,8 @@ button:disabled {
   display: block;
   font-size: 13px;
   line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brand-block span,
@@ -106,6 +122,7 @@ button:disabled {
   font-size: 14px;
   font-weight: 700;
   text-align: left;
+  white-space: nowrap;
 }
 
 .nav-button:hover {
@@ -124,9 +141,11 @@ button:disabled {
   margin-top: 8px;
   padding: 10px 8px;
   border-top: 1px solid #e5e7eb;
+  min-width: 0;
 }
 
 .user-card > span {
+  flex: 0 0 auto;
   width: 32px;
   height: 32px;
   display: grid;
@@ -138,12 +157,48 @@ button:disabled {
   font-weight: 800;
 }
 
+.brand-block div,
+.nav-button span,
+.user-card div {
+  min-width: 0;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.sidebar:hover .brand-block div,
+.sidebar:hover .nav-button span,
+.sidebar:hover .user-card div {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.sidebar:not(:hover) .brand-block {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar:not(:hover) .nav-button {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebar:not(:hover) .user-card {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .workspace {
   min-width: 0;
   padding: 20px;
 }
 
 .topbar,
+.upload-panel-bar,
 .file-strip,
 .notice,
 .module,
@@ -283,9 +338,31 @@ input {
   color: #b45309;
 }
 
+.upload-panel-bar {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) minmax(250px, auto);
+  align-items: end;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.panel-toggle {
+  align-self: stretch;
+  min-width: 138px;
+}
+
+.load-statuses {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
 .file-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(240px, 0.7fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
   margin-top: 14px;
   padding: 12px;
@@ -333,7 +410,7 @@ input {
 }
 
 .file-history {
-  margin: 0 12px;
+  margin: 10px 12px 0;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
@@ -566,24 +643,28 @@ input {
 }
 
 .table-wrap {
+  width: 100%;
+  max-width: 100%;
   overflow: auto;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+  scrollbar-gutter: stable both-edges;
 }
 
 table {
   width: 100%;
-  min-width: 1180px;
+  min-width: 1040px;
   border-collapse: collapse;
 }
 
 th,
 td {
-  padding: 8px 10px;
+  padding: 7px 8px;
   border-bottom: 1px solid #edf2f0;
   text-align: left;
   vertical-align: middle;
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 th {
@@ -601,7 +682,7 @@ th {
 .column-header {
   display: grid;
   gap: 6px;
-  min-width: 112px;
+  min-width: clamp(74px, 6.8vw, 112px);
 }
 
 .sort-button {
@@ -647,6 +728,13 @@ tbody tr:hover {
   background: #f7fbfa;
 }
 
+td.mono,
+td:has(.icon-action),
+td:has(.small-button),
+td:has(.link-button) {
+  white-space: nowrap;
+}
+
 td input[type="checkbox"] {
   min-height: auto;
 }
@@ -666,6 +754,12 @@ td input[type="checkbox"] {
   white-space: pre-line;
   color: #374151;
   font-size: 11px;
+}
+
+@media (min-width: 1320px) {
+  table {
+    min-width: 0;
+  }
 }
 
 .status-pill {
@@ -950,10 +1044,17 @@ td input[type="checkbox"] {
   .sidebar {
     position: sticky;
     z-index: 5;
+    width: 100%;
     height: auto;
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 10px;
+    overflow: visible;
+  }
+
+  .sidebar:hover {
+    width: 100%;
+    box-shadow: none;
   }
 
   .brand-block {
@@ -980,7 +1081,14 @@ td input[type="checkbox"] {
 
   .nav-button {
     width: auto;
+    justify-content: flex-start;
+    padding: 0 12px;
     white-space: nowrap;
+  }
+
+  .sidebar .nav-button span {
+    opacity: 1;
+    transform: none;
   }
 
   .workspace {
@@ -995,9 +1103,14 @@ td input[type="checkbox"] {
 
   .file-strip,
   .file-history-list,
+  .upload-panel-bar,
   .summary-grid,
   .settings-grid,
   .simulation-controls {
     grid-template-columns: 1fr;
+  }
+
+  .load-statuses {
+    align-items: flex-start;
   }
 }

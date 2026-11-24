@@ -67,6 +67,7 @@ import type {
 import {
   addTransit,
   backupUrl,
+  loadCurrentUser,
   loadComparisonComments,
   loadFileSessions,
   loadOrderState,
@@ -120,6 +121,7 @@ function App() {
   })
   const [transit, setTransit] = useState<TransitItem[]>([])
   const [view, setView] = useState<ViewKey>('traslados')
+  const [isUploadPanelOpen, setUploadPanelOpen] = useState(false)
   const [selectedTransferTab, setSelectedTransferTab] = useState<TransferTab>('Todos')
   const [selectedExpeditionTab, setSelectedExpeditionTab] = useState<ExpeditionTab>('Todos')
   const [transitTab, setTransitTab] = useState<TransitTab>('Pendientes')
@@ -136,6 +138,7 @@ function App() {
   const [columnFilters, setColumnFilters] = useState<Partial<Record<TableKey, TableFilters>>>({})
   const [tableSorts, setTableSorts] = useState<Partial<Record<TableKey, TableSort>>>({})
   const [palletPane, setPalletPane] = useState<{ scope: PalletScope; key: string; row: AnalysisRow }>()
+  const [userEmail, setUserEmail] = useState('')
 
   const files = filesByCompany[company] ?? {}
   const fileSessions = fileSessionsByCompany[company] ?? []
@@ -152,6 +155,7 @@ function App() {
     ? comparisonForecast?.availablePeriods ?? []
     : files.forecast?.availablePeriods ?? []
   const activePeriod = view === 'comparativa' ? selectedComparisonPeriod : selectedPeriod
+  const displayUserEmail = userEmail || 'Sesion local'
 
   useEffect(() => {
     let cancelled = false
@@ -182,6 +186,20 @@ function App() {
       cancelled = true
     }
   }, [company])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const user = await loadCurrentUser()
+      if (!cancelled) {
+        setUserEmail(user.email)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -795,8 +813,8 @@ function App() {
         <div className="brand-block">
           <img src="/brand-logo.png" alt="" />
           <div>
-            <strong>Pronostico de Abasto</strong>
-            <span>LOGISTICA & SUPPLY</span>
+            <strong>OLO</strong>
+            <span>Pronostico de Abasto</span>
           </div>
         </div>
         <nav>
@@ -824,10 +842,10 @@ function App() {
           <NavButton active={view === 'ajustes'} icon={<Settings size={19} />} onClick={() => setView('ajustes')}>
             Ajustes
           </NavButton>
-          <div className="user-card">
-            <span>US</span>
+          <div className="user-card" title={displayUserEmail}>
+            <span>{userInitials(displayUserEmail)}</span>
             <div>
-              <strong>Sistemas</strong>
+              <strong>{displayUserEmail}</strong>
               <small>{company}</small>
             </div>
           </div>
@@ -889,22 +907,24 @@ function App() {
           </div>
         </header>
 
-        <section className="file-strip" aria-label="Carga de archivos">
-          <FileLoader
-            icon={<FileSpreadsheet size={18} />}
-            title={view === 'comparativa' ? 'Inventario comparativa' : 'Inventario'}
-            loaded={Boolean(activeInventoryFile)}
-            onFile={view === 'comparativa' ? handleComparisonInventory : handleInventory}
-          />
-          <FileLoader
-            icon={<Upload size={18} />}
-            title={view === 'comparativa' ? 'Forecast comparativa' : 'Forecast'}
-            loaded={Boolean(activeForecastFile)}
-            onFile={view === 'comparativa' ? handleComparisonForecast : handleForecast}
-          />
-          {view !== 'comparativa' && (
-            <FileLoader icon={<ClipboardList size={18} />} title="Expediciones" loaded={Boolean(files.expediciones)} onFile={handleExpediciones} />
-          )}
+        <section className="upload-panel-bar" aria-label="Estado y periodo de trabajo">
+          <button className="secondary-button panel-toggle" type="button" onClick={() => setUploadPanelOpen((open) => !open)}>
+            {isUploadPanelOpen ? <X size={16} /> : <Upload size={16} />}
+            {isUploadPanelOpen ? 'Ocultar panel' : 'Mostrar cargas'}
+          </button>
+          <div className="load-statuses" aria-label="Estado de archivos cargados">
+            <StatusPill tone={activeInventoryFile ? 'ok' : 'warn'}>
+              Inventario {activeInventoryFile ? 'cargado' : 'pendiente'}
+            </StatusPill>
+            <StatusPill tone={activeForecastFile ? 'ok' : 'warn'}>
+              Forecast {activeForecastFile ? 'cargado' : 'pendiente'}
+            </StatusPill>
+            {view !== 'comparativa' && (
+              <StatusPill tone={files.expediciones ? 'ok' : 'warn'}>
+                Expediciones {files.expediciones ? 'cargadas' : 'pendientes'}
+              </StatusPill>
+            )}
+          </div>
           <div className="period-controls">
             <label>
               Periodo
@@ -936,12 +956,34 @@ function App() {
           </div>
         </section>
 
-        <FileSessionHistory
-          backupHref={backupUrl(company)}
-          sessions={fileSessions}
-          storage={fileStorage}
-          onRestore={(versionId) => void restoreFileVersion(versionId)}
-        />
+        {isUploadPanelOpen && (
+          <>
+            <section className="file-strip" aria-label="Carga de archivos">
+              <FileLoader
+                icon={<FileSpreadsheet size={18} />}
+                title={view === 'comparativa' ? 'Inventario comparativa' : 'Inventario'}
+                loaded={Boolean(activeInventoryFile)}
+                onFile={view === 'comparativa' ? handleComparisonInventory : handleInventory}
+              />
+              <FileLoader
+                icon={<Upload size={18} />}
+                title={view === 'comparativa' ? 'Forecast comparativa' : 'Forecast'}
+                loaded={Boolean(activeForecastFile)}
+                onFile={view === 'comparativa' ? handleComparisonForecast : handleForecast}
+              />
+              {view !== 'comparativa' && (
+                <FileLoader icon={<ClipboardList size={18} />} title="Expediciones" loaded={Boolean(files.expediciones)} onFile={handleExpediciones} />
+              )}
+            </section>
+
+            <FileSessionHistory
+              backupHref={backupUrl(company)}
+              sessions={fileSessions}
+              storage={fileStorage}
+              onRestore={(versionId) => void restoreFileVersion(versionId)}
+            />
+          </>
+        )}
 
         {(busy || notice) && (
           <div className={busy ? 'notice is-busy' : 'notice'}>
@@ -2407,6 +2449,15 @@ function formatDateTime(value: string): string {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(date)
+}
+
+function userInitials(email: string): string {
+  const account = email.split('@')[0]?.trim() || 'US'
+  const parts = account.split(/[._\-\s]+/).filter(Boolean)
+  const initials = parts.length > 1
+    ? `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`
+    : account.slice(0, 2)
+  return initials.toUpperCase()
 }
 
 function resolveAvailablePeriod(current: string, availablePeriods?: string[]): string {

@@ -25,6 +25,23 @@ export interface FileSessionState {
   }
 }
 
+export interface CurrentUser {
+  email: string
+}
+
+export async function loadCurrentUser(): Promise<CurrentUser> {
+  try {
+    const response = await fetch('/api/auth/me')
+    if (!response.ok) {
+      return { email: '' }
+    }
+    const body = (await response.json()) as Partial<CurrentUser>
+    return { email: String(body.email ?? '').trim() }
+  } catch {
+    return { email: '' }
+  }
+}
+
 export async function loadSettings(company: Company): Promise<AppSettings> {
   const fallback = normalizeSettings(company, readLocal(settingsKey(company), defaultSettings(company)))
   try {
