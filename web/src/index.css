@@ -388,9 +388,9 @@ input {
 }
 
 .file-panel {
-  margin-top: 14px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid #edf2f0;
   border-radius: 8px;
   background: #fff;
 }
@@ -405,7 +405,7 @@ input {
 .file-panel-head > div {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -418,37 +418,53 @@ input {
 .file-panel-head span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: #6b7280;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .file-panel-head strong {
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.file-panel-head .secondary-button {
+  min-height: 30px;
+  padding: 0 10px;
+  border-color: #14b8a6;
+  border-radius: 7px;
+  color: #134e4a;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .file-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 10px;
-  margin-top: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .file-loader {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 10px;
-  min-height: 58px;
-  padding: 10px 12px;
-  border: 1px dashed #b8c8c4;
-  border-radius: 8px;
-  background: #fbfdfc;
+  column-gap: 8px;
+  min-height: 44px;
+  padding: 7px 8px;
+  border: 1px dashed #cfe1dc;
+  border-radius: 7px;
+  background: #fdfefe;
 }
 
 .file-loader-icon {
   color: #00a88f;
+}
+
+.file-loader-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .file-loader-copy {
@@ -458,7 +474,8 @@ input {
 }
 
 .file-loader strong {
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .file-loader small {
@@ -466,18 +483,36 @@ input {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #6b7280;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .file-loader.loaded {
   border-style: solid;
-  border-color: #00a88f;
+  border-color: #7dd3c7;
+  background: #fbfffe;
 }
 
 .file-loader-actions {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
+}
+
+.file-loader-actions .small-button {
+  min-height: 30px;
+  padding: 0 10px;
+  border-color: #14b8a6;
+  border-radius: 7px;
+  color: #134e4a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.file-loader-actions .icon-action {
+  width: 30px;
+  min-height: 30px;
+  border-color: #99f6e4;
+  color: #14b8a6;
 }
 
 .file-loader-actions label {
