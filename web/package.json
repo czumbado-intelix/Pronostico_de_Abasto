@@ -12,7 +12,8 @@
     "cf:types": "wrangler types --path ./src/worker-configuration.d.ts",
     "cf:dev": "npm run build && wrangler pages dev ./dist",
     "cf:migrate:local": "wrangler d1 migrations apply pronostico-abasto --local",
-    "cf:migrate:remote": "wrangler d1 migrations apply pronostico-abasto --remote"
+    "cf:migrate:remote": "wrangler d1 migrations apply pronostico-abasto --remote",
+    "backup:remote": "powershell -ExecutionPolicy Bypass -File ./scripts/Export-D1Backup.ps1"
   },
   "dependencies": {
     "lucide-react": "^1.77.0",

@@ -59,6 +59,7 @@ node_modules/
 .dev.vars
 web/dist/
 web/.wrangler/
+web/backups/
 web/src/assets/hero.png
 web/src/worker-configuration.d.ts
 

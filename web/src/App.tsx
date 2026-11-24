@@ -5,8 +5,11 @@ import {
   Check,
   ClipboardList,
   Copy,
+  Database,
+  Download,
   Eraser,
   FileSpreadsheet,
+  History,
   PackageCheck,
   Play,
   RotateCcw,
@@ -52,6 +55,8 @@ import type {
   CatalogArticle,
   Company,
   ExpeditionLineResult,
+  FileSessionInfo,
+  FileSessionKind,
   LoadedFiles,
   OrderStateEntry,
   PalletInventoryDetail,
@@ -61,6 +66,7 @@ import type {
 } from './domain/types'
 import {
   addTransit,
+  backupUrl,
   loadComparisonComments,
   loadFileSessions,
   loadOrderState,
@@ -71,7 +77,8 @@ import {
   saveFileSession,
   saveOrderState,
   saveSettings,
-  type FileSessionKind,
+  restoreFileSession,
+  type FileSessionState,
 } from './services/api'
 import './index.css'
 
@@ -94,6 +101,14 @@ function App() {
   const [filesByCompany, setFilesByCompany] = useState<Record<Company, LoadedFiles>>({
     EPA: {},
     Cofersa: {},
+  })
+  const [fileSessionsByCompany, setFileSessionsByCompany] = useState<Record<Company, FileSessionInfo[]>>({
+    EPA: [],
+    Cofersa: [],
+  })
+  const [fileStorageByCompany, setFileStorageByCompany] = useState<Record<Company, 'd1' | 'r2'>>({
+    EPA: 'd1',
+    Cofersa: 'd1',
   })
   const [periodByCompany, setPeriodByCompany] = useState<Record<Company, string>>({
     EPA: '',
@@ -123,6 +138,8 @@ function App() {
   const [palletPane, setPalletPane] = useState<{ scope: PalletScope; key: string; row: AnalysisRow }>()
 
   const files = filesByCompany[company] ?? {}
+  const fileSessions = fileSessionsByCompany[company] ?? []
+  const fileStorage = fileStorageByCompany[company] ?? 'd1'
   const settings = settingsByCompany[company]
   const selectedPeriod = periodByCompany[company] || files.forecast?.availablePeriods[0] || ''
   const comparisonInventory = files.comparisonInventory ?? files.inventory
@@ -139,7 +156,7 @@ function App() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [loadedSettings, loadedTransit, loadedComments, loadedFiles] = await Promise.all([
+      const [loadedSettings, loadedTransit, loadedComments, loadedFileState] = await Promise.all([
         loadSettings(company),
         loadTransit(company),
         loadComparisonComments(company),
@@ -149,14 +166,14 @@ function App() {
         setSettingsByCompany((current) => ({ ...current, [company]: loadedSettings }))
         setTransit(loadedTransit)
         setComparisonComments(loadedComments)
-        setFilesByCompany((current) => ({ ...current, [company]: loadedFiles }))
+        applyFileSessionState(company, loadedFileState)
         setPeriodByCompany((current) => ({
           ...current,
-          [company]: resolveAvailablePeriod(current[company], loadedFiles.forecast?.availablePeriods),
+          [company]: resolveAvailablePeriod(current[company], loadedFileState.files.forecast?.availablePeriods),
         }))
         setComparisonPeriodByCompany((current) => ({
           ...current,
-          [company]: resolveAvailablePeriod(current[company], loadedFiles.comparisonForecast?.availablePeriods),
+          [company]: resolveAvailablePeriod(current[company], loadedFileState.files.comparisonForecast?.availablePeriods),
         }))
       }
     }
@@ -497,8 +514,14 @@ function App() {
     sourceName: string,
   ) {
     updateCompanyFiles((current) => ({ ...current, [kind]: payload }))
-    const savedFiles = await saveFileSession(company, kind, payload, sourceName)
-    setFilesByCompany((current) => ({ ...current, [company]: savedFiles }))
+    const savedState = await saveFileSession(company, kind, payload, sourceName)
+    applyFileSessionState(company, savedState)
+  }
+
+  function applyFileSessionState(targetCompany: Company, state: FileSessionState) {
+    setFilesByCompany((current) => ({ ...current, [targetCompany]: state.files }))
+    setFileSessionsByCompany((current) => ({ ...current, [targetCompany]: state.sessions }))
+    setFileStorageByCompany((current) => ({ ...current, [targetCompany]: state.storage.objectStore }))
   }
 
   function updateCompanyFiles(updater: (files: LoadedFiles) => LoadedFiles) {
@@ -706,6 +729,22 @@ function App() {
     setNotice('Comentarios de comparativa limpiados.')
   }
 
+  async function restoreFileVersion(versionId: string) {
+    await runBusy('Restaurando carga...', async () => {
+      const restored = await restoreFileSession(company, versionId)
+      applyFileSessionState(company, restored)
+      setPeriodByCompany((current) => ({
+        ...current,
+        [company]: resolveAvailablePeriod(current[company], restored.files.forecast?.availablePeriods),
+      }))
+      setComparisonPeriodByCompany((current) => ({
+        ...current,
+        [company]: resolveAvailablePeriod(current[company], restored.files.comparisonForecast?.availablePeriods),
+      }))
+      setNotice('Carga restaurada desde el historial.')
+    })
+  }
+
   async function copyText(text: string, label: string) {
     try {
       await navigator.clipboard.writeText(text)
@@ -897,6 +936,13 @@ function App() {
           </div>
         </section>
 
+        <FileSessionHistory
+          backupHref={backupUrl(company)}
+          sessions={fileSessions}
+          storage={fileStorage}
+          onRestore={(versionId) => void restoreFileVersion(versionId)}
+        />
+
         {(busy || notice) && (
           <div className={busy ? 'notice is-busy' : 'notice'}>
             {busy ? <Upload size={18} /> : <Check size={18} />}
@@ -1067,6 +1113,57 @@ function FileLoader(props: {
         }}
       />
     </label>
+  )
+}
+
+function FileSessionHistory(props: {
+  sessions: FileSessionInfo[]
+  storage: 'd1' | 'r2'
+  backupHref: string
+  onRestore: (versionId: string) => void
+}) {
+  const visibleSessions = props.sessions.slice(0, 8)
+  return (
+    <section className="file-history" aria-label="Historial de cargas">
+      <div className="file-history-head">
+        <div>
+          <span>
+            <Database size={15} />
+            Almacenamiento {props.storage === 'r2' ? 'R2' : 'D1'}
+          </span>
+          <strong>Ultimas cargas</strong>
+        </div>
+        <a className="secondary-button" href={props.backupHref}>
+          <Download size={15} />
+          Respaldo
+        </a>
+      </div>
+      {visibleSessions.length > 0 ? (
+        <div className="file-history-list">
+          {visibleSessions.map((session) => (
+            <div className={session.active ? 'file-history-item active' : 'file-history-item'} key={session.versionId}>
+              <History size={15} />
+              <div>
+                <strong>{fileSessionLabel(session.kind)}</strong>
+                <span>
+                  {session.sourceName || 'Carga sin nombre'} · {formatBytes(session.payloadBytes)} · {formatDateTime(session.updatedAt)}
+                </span>
+              </div>
+              {session.active ? (
+                <span className="mini-pill">Activo</span>
+              ) : (
+                <button type="button" onClick={() => props.onRestore(session.versionId)}>
+                  <RotateCcw size={14} />
+                  Restaurar
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p>No hay cargas guardadas todavia.</p>
+      )}
+    </section>
   )
 }
 
@@ -2276,6 +2373,40 @@ function formatPreparedText(items: CatalogArticle[]): string {
 
 function formatTarimaText(items: TarimaSizeEntry[]): string {
   return items.map((item) => `${item.article}\t${item.sizeCode}\t${item.description}`).join('\n')
+}
+
+function fileSessionLabel(kind: FileSessionKind): string {
+  return {
+    inventory: 'Inventario',
+    forecast: 'Forecast',
+    expediciones: 'Expediciones',
+    comparisonInventory: 'Inventario comparativa',
+    comparisonForecast: 'Forecast comparativa',
+  }[kind]
+}
+
+function formatBytes(value: number): string {
+  if (value < 1024) {
+    return `${value} B`
+  }
+  if (value < 1024 * 1024) {
+    return `${formatNumber.format(value / 1024)} KB`
+  }
+  return `${formatNumber.format(value / (1024 * 1024))} MB`
+}
+
+function formatDateTime(value: string): string {
+  if (!value) {
+    return 'sin fecha'
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+  return new Intl.DateTimeFormat('es-CR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date)
 }
 
 function resolveAvailablePeriod(current: string, availablePeriods?: string[]): string {

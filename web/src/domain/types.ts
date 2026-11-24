@@ -245,6 +245,18 @@ export interface LoadedFiles {
   comparisonForecast?: ForecastWorkbook
 }
 
+export type FileSessionKind = keyof LoadedFiles
+
+export interface FileSessionInfo {
+  versionId: string
+  kind: FileSessionKind
+  sourceName: string
+  payloadBytes: number
+  storageBackend: 'd1' | 'r2'
+  updatedAt: string
+  active: boolean
+}
+
 export interface OrderStateEntry {
   ordered: boolean
   selectedPalletKeys: string[]
