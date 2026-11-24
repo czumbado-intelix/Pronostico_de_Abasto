@@ -216,6 +216,15 @@ button:disabled {
 .workspace {
   min-width: 0;
   padding: 20px;
+  transform: translateZ(0);
+  transition:
+    filter 180ms ease,
+    opacity 180ms ease;
+}
+
+.sidebar:hover + .workspace {
+  filter: blur(2px) saturate(0.9);
+  opacity: 0.78;
 }
 
 .topbar,
@@ -1126,6 +1135,8 @@ td input[type="checkbox"] {
   }
 
   .workspace {
+    filter: none;
+    opacity: 1;
     padding: 12px;
   }
 
