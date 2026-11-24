@@ -1,6 +1,7 @@
 :root {
   --sidebar-collapsed: 72px;
   --sidebar-expanded: 252px;
+  --sidebar-rail-item: 48px;
   color: #000;
   background: #f4f6f8;
   font-family:
@@ -180,13 +181,17 @@ button:disabled {
 }
 
 .sidebar:not(:hover) .brand-block {
+  width: var(--sidebar-rail-item);
   justify-content: center;
+  margin-inline: auto;
   padding-left: 0;
   padding-right: 0;
 }
 
 .sidebar:not(:hover) .nav-button {
+  width: var(--sidebar-rail-item);
   justify-content: center;
+  margin-inline: auto;
   padding: 0;
 }
 
@@ -194,8 +199,16 @@ button:disabled {
   margin-inline: auto;
 }
 
+.sidebar:not(:hover) .brand-block div,
+.sidebar:not(:hover) .nav-button span,
+.sidebar:not(:hover) .user-card div {
+  display: none;
+}
+
 .sidebar:not(:hover) .user-card {
+  width: var(--sidebar-rail-item);
   justify-content: center;
+  margin-inline: auto;
   padding-left: 0;
   padding-right: 0;
 }
