@@ -33,6 +33,20 @@ npm run cf:migrate:local
 npm run cf:migrate:remote
 ```
 
+## Acceso
+
+La app esta protegida con Cloudflare Access en Zero Trust:
+
+- Produccion: `pronostico-abasto.pages.dev`
+- Previews/deploys directos: `*.pronostico-abasto.pages.dev`
+- Login: One-time PIN por correo
+- Politica: `Pronostico Abasto - Allow intelix.biz`
+- Permitidos: correos con dominio `@intelix.biz`
+
+Una persona sin sesion valida debe recibir redireccion `302` hacia
+`late-brook-fd0b.cloudflareaccess.com` antes de ver la app o cualquier ruta
+`/api/...`.
+
 ## Archivos cargados
 
 Las cargas procesadas de Excel se guardan con historial y restauracion:
