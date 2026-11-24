@@ -2003,6 +2003,8 @@ function SettingsView(props: {
   const [healthyPercent, setHealthyPercent] = useState(props.settings.thresholds.healthyPercent)
   const [preparedText, setPreparedText] = useState(formatPreparedText(props.settings.preparedArticles))
   const [tarimaText, setTarimaText] = useState(formatTarimaText(props.settings.tarimaSizes))
+  const preparedRows = useMemo(() => parsePreparedText(preparedText), [preparedText])
+  const tarimaRows = useMemo(() => parseTarimaText(tarimaText), [tarimaText])
 
   return (
     <section className="module settings-grid">
@@ -2024,16 +2026,30 @@ function SettingsView(props: {
       <div className="settings-panel">
         <div className="panel-heading">
           <h2>Alistado satelital</h2>
-          <FileLoader icon={<Upload size={16} />} title="Importar" loaded={props.settings.preparedArticles.length > 0} onFile={props.onPreparedFile} />
+          <FileLoader icon={<Upload size={16} />} title="Importar" loaded={preparedRows.length > 0} onFile={props.onPreparedFile} />
         </div>
-        <textarea value={preparedText} onChange={(event) => setPreparedText(event.target.value)} />
+        <CatalogEditor
+          count={preparedRows.length}
+          emptyLabel="Sin articulos"
+          rows={preparedRows}
+          rawValue={preparedText}
+          variant="prepared"
+          onRawChange={setPreparedText}
+        />
       </div>
       <div className="settings-panel">
         <div className="panel-heading">
           <h2>Tamano tarima</h2>
-          <FileLoader icon={<Upload size={16} />} title="Importar" loaded={props.settings.tarimaSizes.length > 0} onFile={props.onTarimaFile} />
+          <FileLoader icon={<Upload size={16} />} title="Importar" loaded={tarimaRows.length > 0} onFile={props.onTarimaFile} />
         </div>
-        <textarea value={tarimaText} onChange={(event) => setTarimaText(event.target.value)} />
+        <CatalogEditor
+          count={tarimaRows.length}
+          emptyLabel="Sin tamanos"
+          rows={tarimaRows}
+          rawValue={tarimaText}
+          variant="tarima"
+          onRawChange={setTarimaText}
+        />
       </div>
       <button
         className="primary-button"
@@ -2042,7 +2058,7 @@ function SettingsView(props: {
           props.onSave({
             company: props.settings.company,
             satelliteZones: splitLines(satelliteZones),
-            excludedZones: [],
+            excludedZones: props.settings.excludedZones,
             thresholds: { redPercent, healthyPercent },
             preparedArticles: parsePreparedText(preparedText),
             tarimaSizes: parseTarimaText(tarimaText),
@@ -2052,6 +2068,57 @@ function SettingsView(props: {
         Guardar ajustes
       </button>
     </section>
+  )
+}
+
+function CatalogEditor(props: {
+  count: number
+  emptyLabel: string
+  rows: Array<CatalogArticle | TarimaSizeEntry>
+  rawValue: string
+  variant: 'prepared' | 'tarima'
+  onRawChange: (value: string) => void
+}) {
+  const visibleRows = props.rows.slice(0, 160)
+  const hiddenRows = props.rows.length - visibleRows.length
+
+  return (
+    <div className="catalog-editor">
+      <div className="catalog-toolbar">
+        <span className="catalog-count">{formatNumber.format(props.count)} registros</span>
+      </div>
+      <div className={`catalog-table ${props.variant}`} role="table">
+        <div className="catalog-row catalog-head" role="row">
+          <span className="catalog-cell article" role="columnheader">Articulo</span>
+          {props.variant === 'tarima' && <span className="catalog-cell size" role="columnheader">Tamano</span>}
+          <span className="catalog-cell description" role="columnheader">Descripcion</span>
+        </div>
+        {visibleRows.length === 0 ? (
+          <div className="catalog-empty">{props.emptyLabel}</div>
+        ) : (
+          visibleRows.map((row) => (
+            <div className="catalog-row" key={`${props.variant}-${row.article}`} role="row">
+              <span className="catalog-cell article" role="cell" title={row.article}>{row.article}</span>
+              {props.variant === 'tarima' && (
+                <span className="catalog-cell size" role="cell">
+                  <span>{'sizeCode' in row ? row.sizeCode : ''}</span>
+                </span>
+              )}
+              <span className="catalog-cell description" role="cell" title={row.description}>{row.description || '-'}</span>
+            </div>
+          ))
+        )}
+        {hiddenRows > 0 && (
+          <div className="catalog-more">
+            +{formatNumber.format(hiddenRows)} registros mas
+          </div>
+        )}
+      </div>
+      <details className="catalog-raw-editor">
+        <summary>Editar datos</summary>
+        <textarea value={props.rawValue} onChange={(event) => props.onRawChange(event.target.value)} />
+      </details>
+    </div>
   )
 }
 
