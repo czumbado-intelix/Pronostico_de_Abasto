@@ -138,6 +138,7 @@ function App() {
   })
   const [transit, setTransit] = useState<TransitItem[]>([])
   const [view, setView] = useState<ViewKey>('traslados')
+  const [isSidebarSuppressed, setSidebarSuppressed] = useState(false)
   const [isUploadPanelOpen, setUploadPanelOpen] = useState(false)
   const [selectedTransferTab, setSelectedTransferTab] = useState<TransferTab>('Todos')
   const [selectedExpeditionTab, setSelectedExpeditionTab] = useState<ExpeditionTab>('Todos')
@@ -1028,9 +1029,19 @@ function App() {
       : selectedPeriod
   const canSelectPeriod = activePeriods.length > 0 && ['traslados', 'comparativa', 'simulacion'].includes(view)
   const currentSubtitle = sectionSubtitle(view)
+  const handleViewSelect = (nextView: ViewKey) => {
+    setView(nextView)
+    setSidebarSuppressed(true)
+  }
+
   return (
     <main className="app-shell">
-      <aside className="sidebar" aria-label="Modulos">
+      <aside
+        className={isSidebarSuppressed ? 'sidebar is-suppressed' : 'sidebar'}
+        aria-label="Modulos"
+        onFocusCapture={() => setSidebarSuppressed(false)}
+        onMouseLeave={() => setSidebarSuppressed(false)}
+      >
         <div className="brand-block">
           <img src="/brand-logo.png" alt="" />
           <div>
@@ -1039,28 +1050,28 @@ function App() {
           </div>
         </div>
         <nav>
-          <NavButton active={view === 'traslados'} icon={<Truck size={19} />} onClick={() => setView('traslados')}>
+          <NavButton active={view === 'traslados'} icon={<Truck size={19} />} onClick={() => handleViewSelect('traslados')}>
             Traslados
           </NavButton>
           <NavButton
             active={view === 'expediciones'}
             icon={<ClipboardList size={19} />}
-            onClick={() => setView('expediciones')}
+            onClick={() => handleViewSelect('expediciones')}
           >
             Expediciones
           </NavButton>
-          <NavButton active={view === 'transito'} icon={<PackageCheck size={19} />} onClick={() => setView('transito')}>
+          <NavButton active={view === 'transito'} icon={<PackageCheck size={19} />} onClick={() => handleViewSelect('transito')}>
             Transito
           </NavButton>
-          <NavButton active={view === 'comparativa'} icon={<BarChart3 size={19} />} onClick={() => setView('comparativa')}>
+          <NavButton active={view === 'comparativa'} icon={<BarChart3 size={19} />} onClick={() => handleViewSelect('comparativa')}>
             Comparativa
           </NavButton>
-          <NavButton active={view === 'simulacion'} icon={<Play size={19} />} onClick={() => setView('simulacion')}>
+          <NavButton active={view === 'simulacion'} icon={<Play size={19} />} onClick={() => handleViewSelect('simulacion')}>
             Simulacion
           </NavButton>
         </nav>
         <div className="sidebar-footer">
-          <NavButton active={view === 'ajustes'} icon={<Settings size={19} />} onClick={() => setView('ajustes')}>
+          <NavButton active={view === 'ajustes'} icon={<Settings size={19} />} onClick={() => handleViewSelect('ajustes')}>
             Ajustes
           </NavButton>
           <div className="user-card" title={displayUserEmail}>

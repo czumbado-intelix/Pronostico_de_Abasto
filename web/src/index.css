@@ -227,6 +227,49 @@ button:disabled {
   opacity: 0.78;
 }
 
+.sidebar.is-suppressed:hover {
+  width: var(--sidebar-collapsed);
+  box-shadow: none;
+}
+
+.sidebar.is-suppressed:hover .brand-block {
+  width: var(--sidebar-rail-item);
+  justify-content: center;
+  margin-inline: auto;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar.is-suppressed:hover .nav-button {
+  width: var(--sidebar-rail-item);
+  justify-content: center;
+  margin-inline: auto;
+  padding: 0;
+}
+
+.sidebar.is-suppressed:hover .nav-button svg {
+  margin-inline: auto;
+}
+
+.sidebar.is-suppressed:hover .brand-block div,
+.sidebar.is-suppressed:hover .nav-button span,
+.sidebar.is-suppressed:hover .user-card div {
+  display: none;
+}
+
+.sidebar.is-suppressed:hover .user-card {
+  width: var(--sidebar-rail-item);
+  justify-content: center;
+  margin-inline: auto;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar.is-suppressed:hover + .workspace {
+  filter: none;
+  opacity: 1;
+}
+
 .topbar,
 .upload-panel-bar,
 .file-panel,
