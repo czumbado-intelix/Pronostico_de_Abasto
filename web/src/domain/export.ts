@@ -3,11 +3,14 @@ import { normalizeArticleKey, resolveStorageOrigin } from './normalization'
 import type {
   ArticleAnalysisResult,
   CatalogArticle,
+  CoverageStatus,
   ExpeditionLineResult,
   PalletInventoryDetail,
   TarimaSizeEntry,
+  TransferRecommendationState,
   WarehouseComparisonHistogramBucket,
   WarehouseComparisonRow,
+  WeeklyAnalysisResult,
 } from './types'
 
 type TransferLikeRow = ArticleAnalysisResult | ExpeditionLineResult
@@ -16,6 +19,91 @@ export interface TransferWorkbookExportRow {
   row: TransferLikeRow
   pallets: PalletInventoryDetail[]
   ordered: boolean
+}
+
+export async function exportAnalysisWorkbook(args: {
+  company: string
+  result: WeeklyAnalysisResult
+  preparedArticles?: CatalogArticle[]
+  tarimaSizes?: TarimaSizeEntry[]
+  fileName?: string
+}): Promise<void> {
+  const preparedSet = new Set((args.preparedArticles ?? []).map((item) => normalizeArticleKey(item.article).toUpperCase()))
+  const tarimaMap = new Map(
+    (args.tarimaSizes ?? []).map((item) => [normalizeArticleKey(item.article).toUpperCase(), item.sizeCode]),
+  )
+  const horizonLabel = `${args.result.selectedPeriod} a ${args.result.horizonEndPeriod}`
+
+  await writeXlsxFile([
+    {
+      sheet: 'Resumen',
+      data: [
+        [headerCell('Empresa'), text(args.company)],
+        [headerCell('Semana inicio'), text(args.result.selectedPeriod)],
+        [headerCell('Semana fin'), text(args.result.horizonEndPeriod)],
+        [headerCell('Horizonte solicitado'), text(`${args.result.requestedPeriods} periodos`)],
+        [headerCell('Horizonte analizado'), text(`${args.result.analyzedPeriods} periodos`)],
+        [headerCell('Horizonte incompleto'), text(args.result.isIncompleteHorizon ? 'Si' : 'No')],
+        [headerCell('Rojos principales'), number(args.result.criticalCount)],
+        [headerCell('Amarillos principales'), number(args.result.warningCount)],
+        [headerCell('Verdes principales'), number(args.result.healthyCount)],
+        [headerCell('Rojos satelitales'), number(args.result.satelliteCriticalCount)],
+        [headerCell('Amarillos satelitales'), number(args.result.satelliteWarningCount)],
+        [headerCell('Verdes satelitales'), number(args.result.satelliteHealthyCount)],
+      ],
+    },
+    {
+      sheet: 'Resultado',
+      data: [
+        headerRow([
+          'Articulo',
+          'Alistado satelital',
+          'Tamano tarima',
+          'Inventario principal',
+          'Inventario satelital',
+          'Inventario total',
+          `Forecast ${horizonLabel}`,
+          'Diferencia principal',
+          'Estado principal',
+          'Diferencia satelital',
+          'Estado satelital',
+          'Traslado sugerido',
+          'Faltante restante',
+          'Estado de traslado',
+        ]),
+        ...args.result.articles.map((row) => [
+          text(row.article),
+          text(preparedSet.has(normalizeArticleKey(row.article).toUpperCase()) ? 'Si' : 'No'),
+          text(tarimaMap.get(normalizeArticleKey(row.article).toUpperCase()) ?? ''),
+          number(row.principalInventoryQuantity),
+          number(row.satelliteInventoryQuantity),
+          number(row.totalInventoryQuantity),
+          number(row.forecastQuantity),
+          number(row.difference),
+          text(toSpanishStatus(row.status)),
+          number(row.satelliteDifference),
+          text(toSpanishStatus(row.satelliteStatus)),
+          number(row.transferSuggestionQuantity),
+          number(row.remainingShortageAfterTransfer),
+          text(toSpanishTransferState(row.transferRecommendationState)),
+        ]),
+      ],
+    },
+    {
+      sheet: 'Detalle por zonas',
+      data: [
+        headerRow(['Articulo', 'Zona de almacenaje', 'Cantidad', 'Tipo de zona']),
+        ...args.result.articles.flatMap((article) =>
+          article.zones.map((zone) => [
+            text(article.article),
+            text(zone.storageZone),
+            number(zone.quantity),
+            text(zone.isSatellite ? 'Satelital' : 'Principal'),
+          ]),
+        ),
+      ],
+    },
+  ]).toFile(args.fileName ?? 'analisis-pronostico.xlsx')
 }
 
 export async function exportTransferWorkbook(args: {
@@ -84,10 +172,41 @@ export async function exportTransferWorkbook(args: {
       ],
     },
     buildZoneDetailSheet(args.rows),
-    ...buildOriginSheets(regular, tarimaMap),
+    ...buildOriginSheets(regular, tarimaMap, args.pendingPalletKeys),
   ]
 
   await writeXlsxFile(sheets).toFile(args.fileName ?? 'requisicion-traslados.xlsx')
+}
+
+export async function exportExpedicionesWorkbook(args: {
+  company: string
+  rows: TransferWorkbookExportRow[]
+  tarimaSizes?: TarimaSizeEntry[]
+  fileName?: string
+}): Promise<void> {
+  const tarimaMap = new Map(
+    (args.tarimaSizes ?? []).map((item) => [normalizeArticleKey(item.article).toUpperCase(), item.sizeCode]),
+  )
+
+  await writeXlsxFile([
+    {
+      sheet: 'Expediciones',
+      data: [
+        headerRow(['Articulo', 'Descripcion', 'Pallet', 'Solicitud', 'Ubicacion', 'Zona', 'Tamano tarima']),
+        ...args.rows.flatMap((item) =>
+          item.pallets.map((pallet) => [
+            text(item.row.article),
+            text(item.row.description),
+            text(pallet.pallet),
+            number(pallet.quantity),
+            text(pallet.location || 'Sin ubicacion'),
+            text(pallet.storageZone),
+            text(tarimaMap.get(normalizeArticleKey(item.row.article).toUpperCase()) ?? ''),
+          ]),
+        ),
+      ],
+    },
+  ]).toFile(args.fileName ?? 'expediciones-marcadas.xlsx')
 }
 
 export async function exportTransferRows(
@@ -115,13 +234,12 @@ export async function exportWarehouseComparisonWorkbook(args: {
       sheet: 'Comparativa',
       data: [
         ...metadataRows(args.company, args.periodLabel),
-        headerRow(['Articulo', 'Descripcion', 'Inv OLO', 'Inv Servica', 'Forecast', 'Cobertura', 'Comentarios']),
+        headerRow(['Articulo', 'Descripcion', 'Inv OLO', 'Inv Servica', 'Semanas OLO', 'Comentarios']),
         ...args.rows.map((row) => [
           text(row.article),
           text(row.description),
           number(row.oloQuantity),
           number(row.servicaQuantity),
-          number(row.forecastQuantity),
           row.coveragePeriods === undefined ? text('-') : number(row.coveragePeriods),
           text(args.comments[row.article] || row.automaticComment),
         ]),
@@ -130,12 +248,19 @@ export async function exportWarehouseComparisonWorkbook(args: {
     {
       sheet: 'Histograma',
       data: [
+        [titleCell('Reporte de Distribucion de Articulos por Periodo'), text(''), text('')],
+        [],
         headerRow(['Periodo', 'Cantidad de articulos', '% del total']),
         ...args.histogram.map((bucket) => [
           text(bucket.label),
           number(bucket.articleCount),
           number(bucket.percentage / 100),
         ]),
+        [
+          headerCell('Total'),
+          number(args.histogram.reduce((sum, bucket) => sum + bucket.articleCount, 0)),
+          number(args.histogram.reduce((sum, bucket) => sum + bucket.percentage, 0) / 100),
+        ],
       ],
     },
   ]).toFile(args.fileName ?? 'comparativa-histograma.xlsx')
@@ -224,6 +349,7 @@ function buildZoneDetailSheet(rows: TransferWorkbookExportRow[]): { sheet: strin
 function buildOriginSheets(
   rows: TransferWorkbookExportRow[],
   tarimaMap: Map<string, string>,
+  pendingPalletKeys?: Set<string>,
 ): Array<{ sheet: string; data: Row[] }> {
   const origins = ['SERVICA', 'COCO', 'OTRAS']
   return origins.map((origin) => ({
@@ -239,6 +365,7 @@ function buildOriginSheets(
         'Fecha validacion',
         'Tamano tarima',
         'Cantidad palets',
+        'Estado transito',
       ]),
       ...rows.flatMap((item) =>
         item.pallets
@@ -253,6 +380,7 @@ function buildOriginSheets(
             text(pallet.validationDate ?? 'Sin fecha'),
             text(tarimaMap.get(normalizeArticleKey(item.row.article).toUpperCase()) ?? ''),
             number(1),
+            text(transitState(item.row.article, [pallet], pendingPalletKeys)),
           ]),
       ),
     ],
@@ -275,6 +403,15 @@ function headerRow(labels: string[]): Row {
 }
 
 function headerCell(value: string): Cell {
+  return {
+    value,
+    fontWeight: 'bold',
+    textColor: '#ffffff',
+    backgroundColor: '#00a88f',
+  }
+}
+
+function titleCell(value: string): Cell {
   return {
     value,
     fontWeight: 'bold',
@@ -342,4 +479,17 @@ function transitState(article: string, pallets: PalletInventoryDetail[], pending
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('es-CR', { maximumFractionDigits: 2 }).format(value)
+}
+
+function toSpanishStatus(status: CoverageStatus): string {
+  return status === 'Critical' ? 'Rojo' : status === 'Warning' ? 'Amarillo' : 'Verde'
+}
+
+function toSpanishTransferState(state: TransferRecommendationState): string {
+  return {
+    Suggested: 'Sugerido',
+    Partial: 'Parcial',
+    Unavailable: 'Sin satelital',
+    NotRequired: 'No requerido',
+  }[state]
 }

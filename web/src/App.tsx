@@ -2,6 +2,8 @@ import {
   AlertTriangle,
   ArrowDownUp,
   BarChart3,
+  ChevronDown,
+  ChevronUp,
   Check,
   ClipboardList,
   Copy,
@@ -9,12 +11,12 @@ import {
   Download,
   Eraser,
   FileSpreadsheet,
-  History,
   PackageCheck,
   Play,
   RotateCcw,
   Search,
   Settings,
+  Trash2,
   Truck,
   Upload,
   X,
@@ -31,6 +33,8 @@ import {
 } from './domain/analysis'
 import { companies, defaultSettings } from './domain/defaults'
 import {
+  exportAnalysisWorkbook,
+  exportExpedicionesWorkbook,
   exportTransferWorkbook,
   exportWarehouseComparisonWorkbook,
   type TransferWorkbookExportRow,
@@ -67,6 +71,7 @@ import type {
 import {
   addTransit,
   backupUrl,
+  deleteFileSession,
   loadCurrentUser,
   loadComparisonComments,
   loadFileSessions,
@@ -78,7 +83,6 @@ import {
   saveFileSession,
   saveOrderState,
   saveSettings,
-  restoreFileSession,
   type FileSessionState,
 } from './services/api'
 import './index.css'
@@ -94,6 +98,7 @@ type UploadSlot = {
   kind: FileSessionKind
   title: string
   loaded: boolean
+  sourceName: string
   icon: ReactNode
   onFile: (file: File) => void | Promise<void>
 }
@@ -589,6 +594,24 @@ function App() {
     setFileStorageByCompany((current) => ({ ...current, [targetCompany]: state.storage.objectStore }))
   }
 
+  function syncPeriodsFromFileState(targetCompany: Company, loadedFiles: LoadedFiles) {
+    setPeriodByCompany((current) => ({
+      ...current,
+      [targetCompany]: resolveAvailablePeriod(
+        current[targetCompany],
+        (loadedFiles.transferForecast ?? loadedFiles.forecast)?.availablePeriods,
+      ),
+    }))
+    setComparisonPeriodByCompany((current) => ({
+      ...current,
+      [targetCompany]: resolveAvailablePeriod(current[targetCompany], loadedFiles.comparisonForecast?.availablePeriods),
+    }))
+    setSimulationPeriodByCompany((current) => ({
+      ...current,
+      [targetCompany]: resolveAvailablePeriod(current[targetCompany], loadedFiles.simulationForecast?.availablePeriods),
+    }))
+  }
+
   function updateCompanyFiles(updater: (files: LoadedFiles) => LoadedFiles) {
     setFilesByCompany((current) => ({
       ...current,
@@ -737,11 +760,27 @@ function App() {
     setNotice('Ajustes guardados.')
   }
 
-  async function exportTransfer(scope: PalletScope, visibleRows: AnalysisRow[]) {
+  async function exportTransfer(scope: PalletScope) {
     const selectedRows = scope === 'transfer' ? orderedTransferRows : orderedExpeditionRows
-    const sourceRows = selectedRows.length > 0 ? selectedRows : visibleRows.filter((row) => selectedPallets(row).length > 0)
-    if (sourceRows.length === 0) {
-      setNotice('No hay filas con pallets para exportar.')
+    if (selectedRows.length === 0) {
+      setNotice(scope === 'transfer'
+        ? 'Marque al menos una fila de traslado con pallets para exportar.'
+        : 'Marque al menos una expedicion con pallets para descargar.')
+      return
+    }
+
+    if (scope === 'expedition') {
+      await exportExpedicionesWorkbook({
+        company,
+        rows: selectedRows.map((row): TransferWorkbookExportRow => ({
+          row,
+          pallets: selectedPallets(row),
+          ordered: Boolean(orderedRows[rowKey(scope, row)]),
+        })),
+        tarimaSizes: settings.tarimaSizes,
+        fileName: `${company}-expediciones-marcadas-${todayKey()}.xlsx`,
+      })
+      setNotice('Expediciones marcadas descargadas.')
       return
     }
 
@@ -751,14 +790,30 @@ function App() {
       preparedArticles: settings.preparedArticles,
       tarimaSizes: settings.tarimaSizes,
       pendingPalletKeys: unavailablePalletKeys,
-      rows: sourceRows.map((row): TransferWorkbookExportRow => ({
+      rows: selectedRows.map((row): TransferWorkbookExportRow => ({
         row,
         pallets: selectedPallets(row),
         ordered: Boolean(orderedRows[rowKey(scope, row)]),
       })),
-      fileName: scope === 'transfer' ? `${company}-traslados-${todayKey()}.xlsx` : `${company}-expediciones-${todayKey()}.xlsx`,
+      fileName: `${company}-traslados-${todayKey()}.xlsx`,
     })
-    setNotice('Archivo Excel generado.')
+    setNotice('Requisicion exportada.')
+  }
+
+  async function exportAnalysis() {
+    if (!weeklyResult) {
+      setNotice('Cargue inventario y forecast para exportar el analisis.')
+      return
+    }
+
+    await exportAnalysisWorkbook({
+      company,
+      result: weeklyResult,
+      preparedArticles: settings.preparedArticles,
+      tarimaSizes: settings.tarimaSizes,
+      fileName: `${company}-requisicion-${todayKey()}.xlsx`,
+    })
+    setNotice('Analisis completo exportado.')
   }
 
   async function exportComparison() {
@@ -794,27 +849,38 @@ function App() {
     setNotice('Comentarios de comparativa limpiados.')
   }
 
-  async function restoreFileVersion(versionId: string) {
-    await runBusy('Restaurando carga...', async () => {
-      const restored = await restoreFileSession(company, versionId)
-      applyFileSessionState(company, restored)
-      setPeriodByCompany((current) => ({
-        ...current,
-        [company]: resolveAvailablePeriod(
-          current[company],
-          (restored.files.transferForecast ?? restored.files.forecast)?.availablePeriods,
-        ),
-      }))
-      setComparisonPeriodByCompany((current) => ({
-        ...current,
-        [company]: resolveAvailablePeriod(current[company], restored.files.comparisonForecast?.availablePeriods),
-      }))
-      setSimulationPeriodByCompany((current) => ({
-        ...current,
-        [company]: resolveAvailablePeriod(current[company], restored.files.simulationForecast?.availablePeriods),
-      }))
-      setNotice('Carga restaurada desde el historial.')
+  async function clearUploadSlot(slot: UploadSlot) {
+    await runBusy(`Quitando ${slot.title.toLowerCase()}...`, async () => {
+      const state = await clearFileKinds(legacyKindsFor(slot.kind))
+      syncPeriodsFromFileState(company, state.files)
+      setNotice(`${slot.title} quitado del modulo.`)
     })
+  }
+
+  async function clearModuleFiles() {
+    if (uploadSlots.length === 0) {
+      return
+    }
+
+    await runBusy('Limpiando archivos del modulo...', async () => {
+      const state = await clearFileKinds(historyKinds)
+      syncPeriodsFromFileState(company, state.files)
+      setNotice('Archivos del modulo limpiados.')
+    })
+  }
+
+  async function clearFileKinds(kinds: FileSessionKind[]): Promise<FileSessionState> {
+    let state: FileSessionState = {
+      files,
+      sessions: fileSessions,
+      storage: { objectStore: fileStorage, r2Enabled: fileStorage === 'r2' },
+    }
+    const uniqueKinds = [...new Set(kinds)]
+    for (const kind of uniqueKinds) {
+      state = await deleteFileSession(company, kind)
+    }
+    applyFileSessionState(company, state)
+    return state
   }
 
   async function copyText(text: string, label: string) {
@@ -860,6 +926,10 @@ function App() {
     return tarimaMap.get(normalizeArticleKey(article).toUpperCase()) ?? ''
   }
 
+  function sourceNameFor(kind: FileSessionKind): string {
+    return activeFileSourceName(fileSessions, legacyKindsFor(kind))
+  }
+
   const uploadSlots: UploadSlot[] = [
     ...(view === 'traslados'
       ? [
@@ -867,6 +937,7 @@ function App() {
           kind: 'transferInventory' as const,
           title: 'Inventario',
           loaded: Boolean(transferInventory),
+          sourceName: sourceNameFor('transferInventory'),
           icon: <FileSpreadsheet size={18} />,
           onFile: handleTransferInventory,
         },
@@ -874,6 +945,7 @@ function App() {
           kind: 'transferForecast' as const,
           title: 'Forecast',
           loaded: Boolean(transferForecast),
+          sourceName: sourceNameFor('transferForecast'),
           icon: <Upload size={18} />,
           onFile: handleTransferForecast,
         },
@@ -885,6 +957,7 @@ function App() {
           kind: 'expeditionInventory' as const,
           title: 'Inventario',
           loaded: Boolean(expeditionInventory),
+          sourceName: sourceNameFor('expeditionInventory'),
           icon: <FileSpreadsheet size={18} />,
           onFile: handleExpeditionInventory,
         },
@@ -892,6 +965,7 @@ function App() {
           kind: 'expeditionReport' as const,
           title: 'Expediciones',
           loaded: Boolean(expeditionReport),
+          sourceName: sourceNameFor('expeditionReport'),
           icon: <ClipboardList size={18} />,
           onFile: handleExpeditionReport,
         },
@@ -903,6 +977,7 @@ function App() {
           kind: 'comparisonInventory' as const,
           title: 'Inventario comparativa',
           loaded: Boolean(comparisonInventory),
+          sourceName: sourceNameFor('comparisonInventory'),
           icon: <FileSpreadsheet size={18} />,
           onFile: handleComparisonInventory,
         },
@@ -910,6 +985,7 @@ function App() {
           kind: 'comparisonForecast' as const,
           title: 'Forecast comparativa',
           loaded: Boolean(comparisonForecast),
+          sourceName: sourceNameFor('comparisonForecast'),
           icon: <Upload size={18} />,
           onFile: handleComparisonForecast,
         },
@@ -921,6 +997,7 @@ function App() {
           kind: 'simulationInventory' as const,
           title: 'Inventario simulacion',
           loaded: Boolean(simulationInventory),
+          sourceName: sourceNameFor('simulationInventory'),
           icon: <FileSpreadsheet size={18} />,
           onFile: handleSimulationInventory,
         },
@@ -928,6 +1005,7 @@ function App() {
           kind: 'simulationForecast' as const,
           title: 'Forecast simulacion',
           loaded: Boolean(simulationForecast),
+          sourceName: sourceNameFor('simulationForecast'),
           icon: <Upload size={18} />,
           onFile: handleSimulationForecast,
         },
@@ -1052,9 +1130,14 @@ function App() {
         {(uploadSlots.length > 0 || canSelectPeriod) && (
           <section className="upload-panel-bar" aria-label="Estado y periodo de trabajo">
             {uploadSlots.length > 0 && (
-              <button className="secondary-button panel-toggle" type="button" onClick={() => setUploadPanelOpen((open) => !open)}>
-                {isUploadPanelOpen ? <X size={16} /> : <Upload size={16} />}
-                {isUploadPanelOpen ? 'Ocultar panel' : 'Mostrar cargas'}
+              <button
+                aria-label={isUploadPanelOpen ? 'Ocultar cargas' : 'Mostrar cargas'}
+                className="panel-toggle"
+                title={isUploadPanelOpen ? 'Ocultar cargas' : 'Mostrar cargas'}
+                type="button"
+                onClick={() => setUploadPanelOpen((open) => !open)}
+              >
+                {isUploadPanelOpen ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
               </button>
             )}
             <div className="load-statuses" aria-label="Estado de archivos cargados">
@@ -1105,27 +1188,13 @@ function App() {
         )}
 
         {isUploadPanelOpen && uploadSlots.length > 0 && (
-          <>
-            <section className="file-strip" aria-label="Carga de archivos">
-              {uploadSlots.map((slot) => (
-                <FileLoader
-                  icon={slot.icon}
-                  key={slot.kind}
-                  title={slot.title}
-                  loaded={slot.loaded}
-                  onFile={slot.onFile}
-                />
-              ))}
-            </section>
-
-            <FileSessionHistory
-              backupHref={backupUrl(company)}
-              sessions={fileSessions}
-              storage={fileStorage}
-              visibleKinds={historyKinds}
-              onRestore={(versionId) => void restoreFileVersion(versionId)}
-            />
-          </>
+          <FileUploadPanel
+            backupHref={backupUrl(company)}
+            slots={uploadSlots}
+            storage={fileStorage}
+            onClearAll={() => void clearModuleFiles()}
+            onClearSlot={(slot) => void clearUploadSlot(slot)}
+          />
         )}
 
         {(busy || notice) && (
@@ -1158,7 +1227,8 @@ function App() {
             onOpenPallets={(row) => setPalletPane({ scope: 'transfer', key: rowKey('transfer', row), row })}
             onSend={(row) => void sendSingleToTransit('transfer', row)}
             onSendMarked={() => void sendMarkedToTransit('transfer')}
-            onExport={() => void exportTransfer('transfer', transferRows)}
+            onExport={() => void exportTransfer('transfer')}
+            onExportAnalysis={() => void exportAnalysis()}
           />
         )}
         {view === 'expediciones' && (
@@ -1185,7 +1255,7 @@ function App() {
             onOpenPallets={(row) => setPalletPane({ scope: 'expedition', key: rowKey('expedition', row), row })}
             onSend={(row) => void sendSingleToTransit('expedition', row)}
             onSendMarked={() => void sendMarkedToTransit('expedition')}
-            onExport={() => void exportTransfer('expedition', expeditionRows)}
+            onExport={() => void exportTransfer('expedition')}
           />
         )}
         {view === 'transito' && (
@@ -1278,26 +1348,47 @@ function NavButton(props: {
 function FileLoader(props: {
   title: string
   loaded: boolean
+  sourceName?: string
   icon: ReactNode
   onFile: (file: File) => void | Promise<void>
+  onClear?: () => void
 }) {
   return (
-    <label className={props.loaded ? 'file-loader loaded' : 'file-loader'}>
-      <span>{props.icon}</span>
-      <strong>{props.title}</strong>
-      <small>{props.loaded ? 'Cargado' : 'Seleccionar Excel'}</small>
-      <input
-        type="file"
-        accept=".xlsx,.xls"
-        onChange={(event) => {
-          const file = event.currentTarget.files?.[0]
-          if (file) {
-            void props.onFile(file)
-          }
-          event.currentTarget.value = ''
-        }}
-      />
-    </label>
+    <div className={props.loaded ? 'file-loader loaded' : 'file-loader'}>
+      <span className="file-loader-icon">{props.icon}</span>
+      <div className="file-loader-copy">
+        <strong>{props.title}</strong>
+        <small>{props.loaded ? props.sourceName || 'Archivo cargado' : 'Sin archivo cargado'}</small>
+      </div>
+      <div className="file-loader-actions">
+        <label className="small-button">
+          {props.loaded ? 'Reemplazar' : 'Cargar'}
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0]
+              if (file) {
+                void props.onFile(file)
+              }
+              event.currentTarget.value = ''
+            }}
+          />
+        </label>
+        {props.onClear && (
+          <button
+            aria-label={`Quitar ${props.title}`}
+            className="icon-action danger"
+            disabled={!props.loaded}
+            title={`Quitar ${props.title}`}
+            type="button"
+            onClick={props.onClear}
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -1308,55 +1399,47 @@ function uploadSlotStatus(slot: UploadSlot): string {
   return `${slot.title} ${slot.kind === 'expeditionReport' ? 'cargadas' : 'cargado'}`
 }
 
-function FileSessionHistory(props: {
-  sessions: FileSessionInfo[]
+function FileUploadPanel(props: {
+  slots: UploadSlot[]
   storage: 'd1' | 'r2'
   backupHref: string
-  visibleKinds: FileSessionKind[]
-  onRestore: (versionId: string) => void
+  onClearAll: () => void
+  onClearSlot: (slot: UploadSlot) => void
 }) {
-  const visibleKindSet = new Set(props.visibleKinds)
-  const visibleSessions = props.sessions.filter((session) => visibleKindSet.has(session.kind)).slice(0, 8)
   return (
-    <section className="file-history" aria-label="Historial de cargas">
-      <div className="file-history-head">
+    <section className="file-panel" aria-label="Carga de archivos">
+      <div className="file-panel-head">
         <div>
           <span>
             <Database size={15} />
             Almacenamiento {props.storage === 'r2' ? 'R2' : 'D1'}
           </span>
-          <strong>Ultimas cargas</strong>
+          <strong>Cargas del modulo</strong>
         </div>
-        <a className="secondary-button" href={props.backupHref}>
-          <Download size={15} />
-          Respaldo
-        </a>
+        <div>
+          <button className="secondary-button" type="button" onClick={props.onClearAll}>
+            <Trash2 size={15} />
+            Limpiar archivos
+          </button>
+          <a className="secondary-button" href={props.backupHref}>
+            <Download size={15} />
+            Respaldo
+          </a>
+        </div>
       </div>
-      {visibleSessions.length > 0 ? (
-        <div className="file-history-list">
-          {visibleSessions.map((session) => (
-            <div className={session.active ? 'file-history-item active' : 'file-history-item'} key={session.versionId}>
-              <History size={15} />
-              <div>
-                <strong>{fileSessionLabel(session.kind)}</strong>
-                <span>
-                  {session.sourceName || 'Carga sin nombre'} · {formatBytes(session.payloadBytes)} · {formatDateTime(session.updatedAt)}
-                </span>
-              </div>
-              {session.active ? (
-                <span className="mini-pill">Activo</span>
-              ) : (
-                <button type="button" onClick={() => props.onRestore(session.versionId)}>
-                  <RotateCcw size={14} />
-                  Restaurar
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p>No hay cargas guardadas para este modulo.</p>
-      )}
+      <div className="file-strip">
+        {props.slots.map((slot) => (
+          <FileLoader
+            icon={slot.icon}
+            key={slot.kind}
+            title={slot.title}
+            loaded={slot.loaded}
+            sourceName={slot.sourceName}
+            onClear={() => props.onClearSlot(slot)}
+            onFile={slot.onFile}
+          />
+        ))}
+      </div>
     </section>
   )
 }
@@ -1384,6 +1467,7 @@ function TransferView(props: {
   onSend: (row: ArticleAnalysisResult) => void
   onSendMarked: () => void
   onExport: () => void
+  onExportAnalysis: () => void
 }) {
   if (!props.result) {
     return <EmptyState text="Cargue inventario y forecast para calcular traslados." />
@@ -1418,6 +1502,9 @@ function TransferView(props: {
         onClearTable={props.onClearTable}
         onSend={props.onSendMarked}
         onExport={props.onExport}
+        exportLabel="Exportar requisicion"
+        onSecondaryExport={props.onExportAnalysis}
+        secondaryExportLabel="Exportar analisis"
       />
       <div className="table-wrap">
         <table>
@@ -1554,6 +1641,7 @@ function ExpedicionesView(props: {
         onClearTable={props.onClearTable}
         onSend={props.onSendMarked}
         onExport={props.onExport}
+        exportLabel="Descargar marcados"
       />
       <div className="table-wrap">
         <table>
@@ -2057,6 +2145,9 @@ function TableActions(props: {
   onClearTable: () => void
   onSend: () => void
   onExport: () => void
+  exportLabel?: string
+  onSecondaryExport?: () => void
+  secondaryExportLabel?: string
 }) {
   return (
     <div className="table-actions">
@@ -2067,8 +2158,13 @@ function TableActions(props: {
             <Eraser size={16} /> Limpiar filtros
           </button>
         )}
+        {props.onSecondaryExport && (
+          <button className="secondary-button" type="button" onClick={props.onSecondaryExport}>
+            {props.secondaryExportLabel ?? 'Exportar analisis'}
+          </button>
+        )}
         <button className="secondary-button" type="button" onClick={props.onExport}>
-          Exportar requisicion
+          {props.exportLabel ?? 'Exportar requisicion'}
         </button>
         <button className="primary-button" type="button" onClick={props.onSend}>
           Mandar a pedir
@@ -2569,20 +2665,14 @@ function formatTarimaText(items: TarimaSizeEntry[]): string {
   return items.map((item) => `${item.article}\t${item.sizeCode}\t${item.description}`).join('\n')
 }
 
-function fileSessionLabel(kind: FileSessionKind): string {
-  return {
-    transferInventory: 'Inventario traslados',
-    transferForecast: 'Forecast traslados',
-    expeditionInventory: 'Inventario expediciones',
-    expeditionReport: 'Reporte expediciones',
-    simulationInventory: 'Inventario simulacion',
-    simulationForecast: 'Forecast simulacion',
-    inventory: 'Inventario',
-    forecast: 'Forecast',
-    expediciones: 'Expediciones',
-    comparisonInventory: 'Inventario comparativa',
-    comparisonForecast: 'Forecast comparativa',
-  }[kind]
+function activeFileSourceName(sessions: FileSessionInfo[], kinds: FileSessionKind[]): string {
+  for (const kind of kinds) {
+    const session = sessions.find((item) => item.active && item.kind === kind)
+    if (session?.sourceName) {
+      return session.sourceName
+    }
+  }
+  return ''
 }
 
 function legacyKindsFor(kind: FileSessionKind): FileSessionKind[] {
@@ -2600,30 +2690,6 @@ function legacyKindsFor(kind: FileSessionKind): FileSessionKind[] {
     comparisonForecast: ['comparisonForecast'],
   }
   return legacyFileKindMap[kind]
-}
-
-function formatBytes(value: number): string {
-  if (value < 1024) {
-    return `${value} B`
-  }
-  if (value < 1024 * 1024) {
-    return `${formatNumber.format(value / 1024)} KB`
-  }
-  return `${formatNumber.format(value / (1024 * 1024))} MB`
-}
-
-function formatDateTime(value: string): string {
-  if (!value) {
-    return 'sin fecha'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-  return new Intl.DateTimeFormat('es-CR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date)
 }
 
 function userInitials(email: string): string {
