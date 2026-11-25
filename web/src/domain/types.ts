@@ -10,6 +10,13 @@ export type TransferRecommendationState =
 
 export type ForecastGranularity = 'Weekly' | 'Monthly'
 
+export type HorizonUnit = 'Weeks' | 'Months'
+
+export interface AnalysisHorizon {
+  unit: HorizonUnit
+  amount: number
+}
+
 export interface CoverageThresholds {
   redPercent: number
   healthyPercent: number
@@ -186,6 +193,7 @@ export interface WarehouseComparisonHistogramBucket {
 }
 
 export interface ScenarioPeriod {
+  period?: string
   label: string
   epaDemand?: number
   cofersaDemand?: number

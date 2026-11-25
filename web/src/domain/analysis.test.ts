@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  analyzeWarehouseComparison,
   analyzeExpediciones,
   analyzeWeeklyForecast,
+  buildWarehouseComparisonHistogram,
   outstandingPalletKeys,
   pendingTransitQuantities,
   simulateScenario,
@@ -153,5 +155,158 @@ describe('web analysis port', () => {
     })
 
     expect(result.periods[0]?.transferLoad).toBe(0)
+  })
+
+  it('excludes merma pallets and ignored zones from warehouse comparison', () => {
+    const result = analyzeWarehouseComparison({
+      inventory: [
+        {
+          article: '1000',
+          storageZone: 'ZA36-ZONA  ALMACENAJE MUELLE RECEPCION - CLIRO',
+          quantity: 10,
+          description: 'Articulo prueba',
+          pallet: 'P1',
+          palletType: 'MULART',
+          location: '',
+        },
+        {
+          article: '1000',
+          storageZone: 'ZA46-ZA45 ZONA ALMACENAJE SERVICA',
+          quantity: 5,
+          description: 'Articulo prueba',
+          pallet: 'P2',
+          palletType: 'Tipo pallet Merma',
+          location: '',
+        },
+        {
+          article: '1000',
+          storageZone: 'ZA30-ZONA BLOQUEADA',
+          quantity: 7,
+          description: 'Articulo prueba',
+          pallet: 'P3',
+          palletType: 'MULART',
+          location: '',
+        },
+      ],
+      forecast: [{ article: '1000', period: '2026-01-05', quantity: 10 }],
+      availablePeriods: ['2026-01-05'],
+      selectedPeriod: '2026-01-05',
+      ignoredStorageZones: ['ZA30'],
+    })
+
+    const row = result.rows.find((item) => item.article === '1000')
+    expect(row?.oloQuantity).toBe(10)
+    expect(row?.servicaQuantity).toBe(0)
+    expect(row?.coveragePeriods).toBe(1)
+  })
+
+  it('leaves weekly comparison coverage blank when demand starts after five periods', () => {
+    const periods = [
+      '2026-01-05',
+      '2026-01-12',
+      '2026-01-19',
+      '2026-01-26',
+      '2026-02-02',
+      '2026-02-09',
+    ]
+
+    const result = analyzeWarehouseComparison({
+      inventory: [],
+      forecast: [{ article: 'A1', period: '2026-02-09', quantity: 10 }],
+      availablePeriods: periods,
+      selectedPeriod: '2026-01-05',
+      granularity: 'Weekly',
+    })
+
+    expect(result.rows[0]?.coveragePeriods).toBeUndefined()
+    expect(result.rows[0]?.automaticComment).toBe('solicita hasta 09.02.2026')
+  })
+
+  it('keeps zero comparison coverage for deferred monthly demand', () => {
+    const result = analyzeWarehouseComparison({
+      inventory: [],
+      forecast: [{ article: 'A1', period: '2026-06-01', quantity: 10 }],
+      availablePeriods: [
+        '2026-01-01',
+        '2026-02-01',
+        '2026-03-01',
+        '2026-04-01',
+        '2026-05-01',
+        '2026-06-01',
+      ],
+      selectedPeriod: '2026-01-01',
+      granularity: 'Monthly',
+    })
+
+    expect(result.rows[0]?.coveragePeriods).toBe(0)
+    expect(result.rows[0]?.automaticComment).toBe('solicita hasta 01.06.2026')
+  })
+
+  it('resolves comparison descriptions using article keys without leading zeroes', () => {
+    const result = analyzeWarehouseComparison({
+      inventory: [],
+      forecast: [{ article: '0002001', period: '2026-01-05', quantity: 1 }],
+      availablePeriods: ['2026-01-05'],
+      selectedPeriod: '2026-01-05',
+      descriptions: { '2001': 'Bomba manual' },
+    })
+
+    expect(result.rows[0]?.description).toBe('Bomba manual')
+  })
+
+  it('excludes manual no solicita comments from warehouse comparison histogram', () => {
+    const histogram = buildWarehouseComparisonHistogram(
+      [
+        {
+          article: 'A',
+          description: '',
+          oloQuantity: 1,
+          servicaQuantity: 0,
+          forecastQuantity: 1,
+          coveragePeriods: 1,
+          hasFutureForecast: true,
+          automaticComment: '',
+        },
+        {
+          article: 'B',
+          description: '',
+          oloQuantity: 2,
+          servicaQuantity: 0,
+          forecastQuantity: 1,
+          coveragePeriods: 2,
+          hasFutureForecast: true,
+          automaticComment: '',
+        },
+      ],
+      4,
+      'sem',
+      { A: 'no solicita' },
+    )
+
+    expect(histogram).toEqual([{ label: '2 sem', articleCount: 1, percentage: 100 }])
+  })
+
+  it('uses rolling month horizons for transfer analysis', () => {
+    const result = analyzeWeeklyForecast({
+      inventory: [],
+      forecast: [{ article: '1000', period: '2026-07-20', quantity: 1 }],
+      selectedPeriod: '2026-06-22',
+      horizon: { unit: 'Months', amount: 1 },
+      thresholds: defaultThresholds,
+      satelliteZones: defaultSatelliteZones,
+      ignoredStorageZones: defaultExcludedZones,
+      availablePeriods: [
+        '2026-06-22',
+        '2026-06-29',
+        '2026-07-06',
+        '2026-07-13',
+        '2026-07-20',
+        '2026-07-27',
+      ],
+    })
+
+    expect(result.analyzedPeriods).toBe(5)
+    expect(result.horizonEndPeriod).toBe('2026-07-20')
+    expect(result.isIncompleteHorizon).toBe(false)
   })
 })

@@ -57,11 +57,14 @@ import {
 import type {
   AppSettings,
   ArticleAnalysisResult,
+  AnalysisHorizon,
   CatalogArticle,
   Company,
   ExpeditionLineResult,
   FileSessionInfo,
   FileSessionKind,
+  ForecastWorkbook,
+  InventoryWorkbook,
   LoadedFiles,
   OrderStateEntry,
   PalletInventoryDetail,
@@ -105,6 +108,7 @@ type UploadSlot = {
 }
 
 const formatNumber = new Intl.NumberFormat('es-CR', { maximumFractionDigits: 2 })
+const preparedDescriptionPhrases = ['RODAPIE', 'PISO DECK', 'DECK']
 
 function App() {
   const [company, setCompany] = useState<Company>('EPA')
@@ -144,7 +148,7 @@ function App() {
   const [selectedExpeditionTab, setSelectedExpeditionTab] = useState<ExpeditionTab>('Todos')
   const [transitTab, setTransitTab] = useState<TransitTab>('Pendientes')
   const [comparisonMode, setComparisonMode] = useState<'Tabla' | 'Histograma'>('Tabla')
-  const [horizonPeriods, setHorizonPeriods] = useState(4)
+  const [horizon, setHorizon] = useState<AnalysisHorizon>({ unit: 'Weeks', amount: 4 })
   const [scenarioMonths, setScenarioMonths] = useState(3)
   const [scenarioBuffer, setScenarioBuffer] = useState(15)
   const [searchText, setSearchText] = useState('')
@@ -175,6 +179,13 @@ function App() {
     comparisonPeriodByCompany[company] || comparisonForecast?.availablePeriods[0] || ''
   const selectedSimulationPeriod =
     simulationPeriodByCompany[company] || simulationForecast?.availablePeriods[0] || ''
+  const horizonOptions = useMemo(() => buildHorizonOptions(transferForecast?.granularity), [transferForecast?.granularity])
+  const activeHorizon = useMemo(
+    () => horizonOptions.find((option) => sameHorizon(option.value, horizon))?.value ??
+      horizonOptions[0]?.value ??
+      horizon,
+    [horizon, horizonOptions],
+  )
   const displayUserEmail = userEmail || 'Sesion local'
 
   useEffect(() => {
@@ -275,7 +286,7 @@ function App() {
       inventory: transferInventory.positions,
       forecast: transferForecast.entries,
       selectedPeriod,
-      horizonPeriods,
+      horizon: activeHorizon,
       thresholds: settings.thresholds,
       satelliteZones: settings.satelliteZones,
       ignoredStorageZones: settings.excludedZones,
@@ -285,8 +296,8 @@ function App() {
       descriptions,
     })
   }, [
+    activeHorizon,
     descriptions,
-    horizonPeriods,
     pendingQuantities,
     selectedPeriod,
     settings.satelliteZones,
@@ -343,7 +354,7 @@ function App() {
       { key: 'servica', label: 'Inv Servica', text: (row) => formatNumber.format(row.servicaQuantity), number: (row) => row.servicaQuantity },
       { key: 'forecast', label: 'Forecast', text: (row) => formatNumber.format(row.forecastQuantity), number: (row) => row.forecastQuantity },
       { key: 'coverage', label: 'Cobertura', text: (row) => row.coveragePeriods === undefined ? '-' : `${formatNumber.format(row.coveragePeriods)} per.`, number: (row) => row.coveragePeriods },
-      { key: 'comments', label: 'Comentarios', text: (row) => comparisonComments[row.article] ?? row.automaticComment },
+      { key: 'comments', label: 'Comentarios', text: (row) => comparisonCommentForArticle(comparisonComments, row.article) || row.automaticComment },
     ],
     [comparisonComments],
   )
@@ -368,8 +379,9 @@ function App() {
         comparisonRows,
         comparisonResult?.periodCount ?? 0,
         comparisonForecast?.granularity === 'Monthly' ? 'mes' : 'sem',
+        comparisonComments,
       ),
-    [comparisonForecast?.granularity, comparisonResult?.periodCount, comparisonRows],
+    [comparisonComments, comparisonForecast?.granularity, comparisonResult?.periodCount, comparisonRows],
   )
 
   const scenario = useMemo(() => {
@@ -378,12 +390,12 @@ function App() {
 
   const transferBaseRows = useMemo(
     () =>
-      (weeklyResult?.articles ?? []).filter(
-        (row) =>
-          row.transferSuggestionQuantity > 0 ||
-          row.remainingShortageAfterTransfer > 0 ||
-          row.pendingTransitQuantity > 0,
-      ),
+      (weeklyResult?.articles ?? [])
+        .filter((row) => row.transferSuggestionQuantity > 0)
+        .sort((a, b) =>
+          b.transferSuggestionQuantity - a.transferSuggestionQuantity ||
+          a.article.localeCompare(b.article),
+        ),
     [weeklyResult?.articles],
   )
 
@@ -417,12 +429,19 @@ function App() {
 
   const expeditionBaseRows = useMemo(
     () =>
-      (expedicionesResult?.lines ?? []).filter(
-        (row) =>
-          row.transferSuggestionQuantity > 0 ||
-          row.remainingShortageAfterTransfer > 0 ||
-          row.pendingTransitQuantity > 0,
-      ),
+      (expedicionesResult?.lines ?? [])
+        .filter(
+          (row) =>
+            row.transferSuggestionQuantity > 0 ||
+            row.remainingShortageAfterTransfer > 0 ||
+            row.pendingTransitQuantity > 0,
+        )
+        .sort((a, b) =>
+          b.transferSuggestionQuantity - a.transferSuggestionQuantity ||
+          b.remainingShortageAfterTransfer - a.remainingShortageAfterTransfer ||
+          a.expeditionNumber.localeCompare(b.expeditionNumber) ||
+          a.article.localeCompare(b.article),
+        ),
     [expedicionesResult?.lines],
   )
 
@@ -472,7 +491,7 @@ function App() {
       return summarizeSearch(
         (comparisonResult?.rows ?? []).filter((row) => row.servicaQuantity > 0),
         searchText,
-        (row) => `${row.article} ${row.description} ${comparisonComments[row.article] ?? row.automaticComment}`,
+        (row) => `${row.article} ${row.description} ${comparisonCommentForArticle(comparisonComments, row.article) || row.automaticComment}`,
       )
     }
     if (view === 'transito') {
@@ -1187,13 +1206,16 @@ function App() {
                 {view === 'traslados' && (
                   <label>
                     Horizonte
-                    <input
-                      type="number"
-                      min={1}
-                      max={26}
-                      value={horizonPeriods}
-                      onChange={(event) => setHorizonPeriods(Number(event.target.value))}
-                    />
+                    <select
+                      value={horizonKey(activeHorizon)}
+                      onChange={(event) => setHorizon(parseHorizonKey(event.target.value))}
+                    >
+                      {horizonOptions.map((option) => (
+                        <option key={horizonKey(option.value)} value={horizonKey(option.value)}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 )}
               </div>
@@ -1302,7 +1324,7 @@ function App() {
             onSort={(column) => toggleTableSort('comparison', column)}
             onClearTable={() => clearTableControls('comparison')}
             onClearComments={clearComparisonComments}
-            onCopy={(row) => void copyText(copyComparisonRow(row, comparisonComments[row.article] ?? row.automaticComment), 'Fila de comparativa')}
+            onCopy={(row) => void copyText(copyComparisonRow(row, comparisonCommentForArticle(comparisonComments, row.article) || row.automaticComment), 'Fila de comparativa')}
             onComment={updateComparisonComment}
             onExport={() => void exportComparison()}
           />
@@ -2406,7 +2428,9 @@ function EmptyState(props: { text: string }) {
 
 function filterTransferRows(rows: ArticleAnalysisResult[], tab: TransferTab, text: string, preparedSet: Set<string>): ArticleAnalysisResult[] {
   const nonPrepared = rows.filter((row) => !isPrepared(row, preparedSet))
-  const highVolumeCutoff = [...nonPrepared].sort((a, b) => b.transferSuggestionQuantity - a.transferSuggestionQuantity)[Math.max(0, Math.floor(nonPrepared.length * 0.2) - 1)]?.transferSuggestionQuantity ?? Number.MAX_SAFE_INTEGER
+  const highVolumeCutoff = nonPrepared.length > 0
+    ? nonPrepared.reduce((sum, row) => sum + row.transferSuggestionQuantity, 0) / nonPrepared.length
+    : Number.MAX_SAFE_INTEGER
   const tabRows = rows.filter((row) => {
     const prepared = isPrepared(row, preparedSet)
     if (tab === 'AlistadoSatelital') return prepared
@@ -2449,7 +2473,7 @@ function filterComparisonRows(
     return rows
   }
   return rows.filter((row) =>
-    matchesSearch(`${row.article} ${row.description} ${comments[row.article] ?? row.automaticComment}`, text),
+    matchesSearch(`${row.article} ${row.description} ${comparisonCommentForArticle(comments, row.article) || row.automaticComment}`, text),
   )
 }
 
@@ -2643,7 +2667,27 @@ function canOrder(row: AnalysisRow, preparedSet: Set<string>): boolean {
 }
 
 function isPrepared(row: AnalysisRow, preparedSet: Set<string>): boolean {
-  return preparedSet.has(normalizeArticleKey(row.article).toUpperCase())
+  return preparedSet.has(normalizeArticleKey(row.article).toUpperCase()) ||
+    matchesPreparedDescription(row.description)
+}
+
+function matchesPreparedDescription(description: string): boolean {
+  const normalized = normalizePreparedDescription(description)
+  if (!normalized) {
+    return false
+  }
+  const searchable = ` ${normalized} `
+  return preparedDescriptionPhrases.some((phrase) => searchable.includes(` ${phrase} `))
+}
+
+function normalizePreparedDescription(value: string): string {
+  return value
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^A-Za-z0-9]+/g, ' ')
+    .trim()
+    .toUpperCase()
 }
 
 function availablePallets(row: AnalysisRow): PalletInventoryDetail[] {
@@ -2702,6 +2746,40 @@ function buildTransitItem(
   }
 }
 
+function buildHorizonOptions(granularity?: 'Weekly' | 'Monthly'): Array<{ label: string; value: AnalysisHorizon }> {
+  return [
+    ...(granularity === 'Monthly'
+      ? []
+      : [
+        { label: '4 semanas', value: { unit: 'Weeks', amount: 4 } as AnalysisHorizon },
+        { label: '5 semanas', value: { unit: 'Weeks', amount: 5 } as AnalysisHorizon },
+      ]),
+    { label: '1 mes', value: { unit: 'Months', amount: 1 } },
+    { label: '2 meses', value: { unit: 'Months', amount: 2 } },
+    { label: '3 meses', value: { unit: 'Months', amount: 3 } },
+  ]
+}
+
+function horizonKey(horizon: AnalysisHorizon): string {
+  return `${horizon.unit}:${horizon.amount}`
+}
+
+function parseHorizonKey(value: string): AnalysisHorizon {
+  const [unit, amount] = value.split(':')
+  return {
+    unit: unit === 'Months' ? 'Months' : 'Weeks',
+    amount: Math.max(1, Number(amount) || 1),
+  }
+}
+
+function sameHorizon(first: AnalysisHorizon, second: AnalysisHorizon): boolean {
+  return first.unit === second.unit && first.amount === second.amount
+}
+
+function comparisonCommentForArticle(comments: Record<string, string>, article: string): string {
+  return comments[article] ?? comments[normalizeArticleKey(article)] ?? ''
+}
+
 function simulateCombinedScenario(
   filesByCompany: Record<Company, LoadedFiles>,
   simulationPeriodByCompany: Record<Company, string>,
@@ -2709,22 +2787,30 @@ function simulateCombinedScenario(
   horizonMonths: number,
   safetyBufferPercent: number,
 ): ReturnType<typeof simulateScenario> {
-  const byLabel = new Map<string, { label: string; epaDemand: number; cofersaDemand: number; demand: number; transferLoad: number }>()
+  const readyCompanies = companies
+    .map((item) => {
+      const files = filesByCompany[item]
+      const inventory = files.simulationInventory
+      const forecast = files.simulationForecast
+      const selectedPeriod = simulationPeriodByCompany[item] || forecast?.availablePeriods[0] || ''
+      return inventory && forecast && selectedPeriod
+        ? { company: item, inventory, forecast, selectedPeriod }
+        : undefined
+    })
+    .filter((item): item is { company: Company; inventory: InventoryWorkbook; forecast: ForecastWorkbook; selectedPeriod: string } => Boolean(item))
+  const globalStartPeriod = readyCompanies
+    .map((item) => item.selectedPeriod)
+    .sort()[0] ?? ''
+  const byPeriod = new Map<string, { period: string; label: string; epaDemand: number; cofersaDemand: number; demand: number; transferLoad: number }>()
   let hasEpa = false
   let hasCofersa = false
 
-  for (const item of companies) {
-    const files = filesByCompany[item]
-    const selectedPeriod = simulationPeriodByCompany[item] || files.simulationForecast?.availablePeriods[0] || ''
-    if (!files.simulationInventory || !files.simulationForecast || !selectedPeriod) {
-      continue
-    }
-
+  for (const { company: item, inventory, forecast } of readyCompanies) {
     const result = simulateScenario({
-      inventory: files.simulationInventory.positions,
-      forecast: files.simulationForecast.entries,
-      availablePeriods: files.simulationForecast.availablePeriods,
-      selectedPeriod,
+      inventory: inventory.positions,
+      forecast: forecast.entries,
+      availablePeriods: forecast.availablePeriods,
+      selectedPeriod: globalStartPeriod,
       horizonMonths,
       safetyBufferPercent,
       satelliteZones: settingsByCompany[item].satelliteZones,
@@ -2738,7 +2824,9 @@ function simulateCombinedScenario(
     }
 
     for (const period of result.periods) {
-      const existing = byLabel.get(period.label) ?? {
+      const periodKey = period.period ?? period.label
+      const existing = byPeriod.get(periodKey) ?? {
+        period: periodKey,
         label: period.label,
         epaDemand: 0,
         cofersaDemand: 0,
@@ -2752,12 +2840,12 @@ function simulateCombinedScenario(
       }
       existing.demand += period.demand
       existing.transferLoad += period.transferLoad
-      byLabel.set(period.label, existing)
+      byPeriod.set(periodKey, existing)
     }
   }
 
   return {
-    periods: [...byLabel.values()],
+    periods: [...byPeriod.values()].sort((a, b) => a.period.localeCompare(b.period)),
     hasEpa,
     hasCofersa,
   }

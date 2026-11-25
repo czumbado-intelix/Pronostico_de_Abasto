@@ -4,11 +4,13 @@ import {
   compareOptionalDateThenText,
   isIgnoredStorageZone,
   normalizeArticleKey,
+  normalizeToken,
   normalizeZoneKey,
   resolveStorageOrigin,
 } from './normalization'
 import type {
   ArticleAnalysisResult,
+  AnalysisHorizon,
   ArticleInventorySummary,
   CoverageStatus,
   CoverageThresholds,
@@ -226,7 +228,8 @@ export function analyzeWeeklyForecast(args: {
   inventory: InventoryPosition[]
   forecast: ForecastEntry[]
   selectedPeriod: string
-  horizonPeriods: number
+  horizonPeriods?: number
+  horizon?: AnalysisHorizon
   thresholds: CoverageThresholds
   satelliteZones?: string[]
   pendingTransitQuantities?: Map<string, number>
@@ -248,9 +251,11 @@ export function analyzeWeeklyForecast(args: {
   ]
     .filter((period) => period >= args.selectedPeriod)
     .sort()
-  const horizon = futurePeriods.slice(0, args.horizonPeriods)
-  const horizonSet = new Set(horizon)
-  const horizonEndPeriod = horizon[horizon.length - 1] ?? args.selectedPeriod
+  const requestedHorizon = normalizeHorizon(args.horizon, args.horizonPeriods)
+  const resolvedHorizon = resolveHorizon(futurePeriods, args.selectedPeriod, requestedHorizon)
+  const horizonPeriods = resolvedHorizon.periods
+  const horizonSet = new Set(horizonPeriods)
+  const horizonEndPeriod = horizonPeriods[horizonPeriods.length - 1] ?? args.selectedPeriod
 
   const inventoryGroups = summarizeInventory(
     availableInventory,
@@ -303,7 +308,7 @@ export function analyzeWeeklyForecast(args: {
         newTransferSuggestionQuantity: transferPlan.newTransferSuggestionQuantity,
         suggestedPallets: transferPlan.suggestedPallets,
         availablePallets: inventoryInfo?.satellitePallets ?? [],
-        coveragePeriods: computeCoveragePeriods(principalInventoryQuantity, forecastInfo?.byPeriod, horizon),
+        coveragePeriods: computeCoveragePeriods(principalInventoryQuantity, forecastInfo?.byPeriod, horizonPeriods),
       }
     })
     .sort(
@@ -316,9 +321,9 @@ export function analyzeWeeklyForecast(args: {
   return {
     selectedPeriod: args.selectedPeriod,
     horizonEndPeriod,
-    requestedPeriods: args.horizonPeriods,
-    analyzedPeriods: horizon.length,
-    isIncompleteHorizon: horizon.length < args.horizonPeriods,
+    requestedPeriods: resolvedHorizon.requestedPeriods,
+    analyzedPeriods: horizonPeriods.length,
+    isIncompleteHorizon: resolvedHorizon.isIncomplete,
     articles,
     criticalCount: articles.filter((article) => article.status === 'Critical').length,
     warningCount: articles.filter((article) => article.status === 'Warning').length,
@@ -326,6 +331,39 @@ export function analyzeWeeklyForecast(args: {
     satelliteCriticalCount: articles.filter((article) => article.satelliteStatus === 'Critical').length,
     satelliteWarningCount: articles.filter((article) => article.satelliteStatus === 'Warning').length,
     satelliteHealthyCount: articles.filter((article) => article.satelliteStatus === 'Healthy').length,
+  }
+}
+
+function normalizeHorizon(horizon: AnalysisHorizon | undefined, horizonPeriods: number | undefined): AnalysisHorizon {
+  if (horizon && horizon.amount >= 1) {
+    return horizon
+  }
+  return { unit: 'Weeks', amount: Math.max(1, horizonPeriods ?? 4) }
+}
+
+function resolveHorizon(
+  futurePeriods: string[],
+  selectedPeriod: string,
+  horizon: AnalysisHorizon,
+): { periods: string[]; requestedPeriods: number; isIncomplete: boolean } {
+  if (horizon.unit === 'Months') {
+    const endExclusive = addMonthsIso(selectedPeriod, horizon.amount)
+    const periods = futurePeriods.filter((period) => period < endExclusive)
+    const lastAvailable = futurePeriods[futurePeriods.length - 1] ?? selectedPeriod
+    const incompleteLimit = addDaysIso(endExclusive, -7)
+    return {
+      periods,
+      requestedPeriods: periods.length,
+      isIncomplete: lastAvailable < incompleteLimit,
+    }
+  }
+
+  const requestedPeriods = Math.max(1, horizon.amount)
+  const periods = futurePeriods.slice(0, requestedPeriods)
+  return {
+    periods,
+    requestedPeriods,
+    isIncomplete: periods.length < requestedPeriods,
   }
 }
 
@@ -428,9 +466,17 @@ export function analyzeWarehouseComparison(args: {
   const futurePeriods = [...new Set(args.availablePeriods.filter(Boolean))]
     .filter((period) => period >= args.selectedPeriod)
     .sort()
+  if (futurePeriods.length === 0) {
+    futurePeriods.push(
+      ...[...new Set(args.forecast.map((entry) => entry.period).filter(Boolean))]
+        .filter((period) => period >= args.selectedPeriod)
+        .sort(),
+    )
+  }
 
   const validInventory = args.inventory
     .filter((position) => position.article.trim())
+    .filter((position) => !isMerma(position.palletType))
     .filter((position) => !isIgnoredStorageZone(position.storageZone, ignoredZoneSet))
 
   const inventoryGroups = new Map<
@@ -466,14 +512,15 @@ export function analyzeWarehouseComparison(args: {
     const article = inventoryInfo?.article ?? forecastInfo?.article ?? key
     const description =
       inventoryInfo?.description ||
-      args.descriptions?.[article] ||
-      args.descriptions?.[key] ||
+      resolveReferenceDescription(article, args.descriptions) ||
+      resolveReferenceDescription(key, args.descriptions) ||
       ''
     const forecastQuantity = forecastInfo?.quantity ?? 0
     const coveragePeriods = computeCoveragePeriods(
       inventoryInfo?.oloQuantity ?? 0,
       forecastInfo?.byPeriod,
       futurePeriods,
+      args.granularity ?? 'Weekly',
     )
 
     return {
@@ -484,7 +531,7 @@ export function analyzeWarehouseComparison(args: {
       forecastQuantity,
       coveragePeriods,
       hasFutureForecast: forecastQuantity > 0,
-      automaticComment: buildComparisonComment(forecastInfo?.byPeriod, futurePeriods, args.granularity ?? 'Weekly'),
+      automaticComment: buildComparisonComment(forecastInfo?.byPeriod, futurePeriods),
     }
   })
 
@@ -507,8 +554,13 @@ export function buildWarehouseComparisonHistogram(
   rows: WarehouseComparisonRow[],
   periodCount: number,
   periodUnit: string,
+  comments: Record<string, string> = {},
 ): WarehouseComparisonHistogramBucket[] {
-  const chartRows = rows.filter((row) => row.hasFutureForecast && row.coveragePeriods !== undefined)
+  const chartRows = rows.filter((row) =>
+    row.hasFutureForecast &&
+    row.coveragePeriods !== undefined &&
+    !isWarehouseComparisonNoSolicita(row, comments),
+  )
   if (chartRows.length === 0 || periodCount <= 0) {
     return []
   }
@@ -565,6 +617,7 @@ export function simulateScenario(args: {
     }
 
     return {
+      period,
       label: formatPeriodLabel(period),
       demand,
       transferLoad,
@@ -600,7 +653,6 @@ function groupForecast(entries: ForecastEntry[]): Map<
 function buildComparisonComment(
   periodDemands: Map<string, number> | undefined,
   futurePeriods: string[],
-  granularity: ForecastGranularity,
 ): string {
   if (!periodDemands || [...periodDemands.values()].reduce((sum, value) => sum + value, 0) <= 0) {
     return 'no solicita'
@@ -613,17 +665,14 @@ function buildComparisonComment(
 
   const requestedHorizonPeriods = futurePeriods.filter((period) => period <= firstRequestedPeriod).length
   return requestedHorizonPeriods >= 4
-    ? `solicita hasta ${formatPeriodForComment(firstRequestedPeriod, granularity)}`
+    ? `solicita hasta ${formatPeriodForComment(firstRequestedPeriod)}`
     : ''
 }
 
-function formatPeriodForComment(period: string, granularity: ForecastGranularity): string {
+function formatPeriodForComment(period: string): string {
   const date = parsePeriodDate(period)
   if (!date) {
     return period
-  }
-  if (granularity === 'Monthly') {
-    return `${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`
   }
   return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`
 }
@@ -631,6 +680,26 @@ function formatPeriodForComment(period: string, granularity: ForecastGranularity
 function parsePeriodDate(period: string): Date | undefined {
   const date = new Date(`${period}T00:00:00`)
   return Number.isNaN(date.valueOf()) ? undefined : date
+}
+
+function addMonthsIso(period: string, months: number): string {
+  const date = parsePeriodDate(period)
+  if (!date) {
+    return period
+  }
+  const next = new Date(date)
+  next.setMonth(next.getMonth() + Math.max(1, months))
+  return toIsoDate(next)
+}
+
+function addDaysIso(period: string, days: number): string {
+  const date = parsePeriodDate(period)
+  if (!date) {
+    return period
+  }
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return toIsoDate(next)
 }
 
 function formatPeriodLabel(period: string): string {
@@ -645,6 +714,7 @@ function computeCoveragePeriods(
   principalInventoryQuantity: number,
   periodDemands: Map<string, number> | undefined,
   horizonPeriods: string[],
+  granularity: ForecastGranularity = 'Weekly',
 ): number | undefined {
   if (horizonPeriods.length === 0 || !periodDemands) {
     return undefined
@@ -653,6 +723,9 @@ function computeCoveragePeriods(
   const totalDemand = [...periodDemands.values()].reduce((sum, value) => sum + value, 0)
   if (totalDemand <= 0) {
     return undefined
+  }
+  if (principalInventoryQuantity <= 0) {
+    return hasDeferredWeeklyDemand(periodDemands, horizonPeriods, granularity) ? undefined : 0
   }
 
   let remaining = principalInventoryQuantity
@@ -671,6 +744,66 @@ function computeCoveragePeriods(
   }
 
   return covered
+}
+
+function hasDeferredWeeklyDemand(
+  periodDemands: Map<string, number>,
+  horizonPeriods: string[],
+  granularity: ForecastGranularity,
+): boolean {
+  const deferredWeeklyDemandPeriods = 5
+  return granularity === 'Weekly' &&
+    horizonPeriods.length > deferredWeeklyDemandPeriods &&
+    horizonPeriods
+      .slice(0, deferredWeeklyDemandPeriods)
+      .every((period) => (periodDemands.get(period) ?? 0) <= 0) &&
+    horizonPeriods
+      .slice(deferredWeeklyDemandPeriods)
+      .some((period) => (periodDemands.get(period) ?? 0) > 0)
+}
+
+function isMerma(palletType: string): boolean {
+  return normalizeToken(palletType).includes('MERMA')
+}
+
+function resolveReferenceDescription(article: string, descriptions?: Record<string, string>): string {
+  if (!descriptions) {
+    return ''
+  }
+  for (const key of buildArticleDescriptionKeys(article)) {
+    const description = descriptions[key]
+    if (description?.trim()) {
+      return description.trim()
+    }
+  }
+  return ''
+}
+
+function buildArticleDescriptionKeys(article: string): string[] {
+  const normalized = normalizeArticleKey(article)
+  const keys = normalized ? [normalized] : []
+  if (/^\d+$/.test(normalized)) {
+    keys.push(normalized.replace(/^0+/, '') || '0')
+  }
+  return keys
+}
+
+function isWarehouseComparisonNoSolicita(
+  row: WarehouseComparisonRow,
+  comments: Record<string, string>,
+): boolean {
+  return !row.hasFutureForecast ||
+    comparisonCommentForArticle(comments, row.article).trim().toLowerCase() === 'no solicita'
+}
+
+function comparisonCommentForArticle(comments: Record<string, string>, article: string): string {
+  return comments[article] ?? comments[normalizeArticleKey(article)] ?? ''
+}
+
+function toIsoDate(date: Date): string {
+  return `${date.getFullYear().toString().padStart(4, '0')}-${(date.getMonth() + 1)
+    .toString()
+    .padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`
 }
 
 function resolveStatus(

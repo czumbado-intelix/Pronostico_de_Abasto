@@ -1,5 +1,5 @@
 import writeXlsxFile, { type Cell, type Row } from 'write-excel-file/browser'
-import { normalizeArticleKey, resolveStorageOrigin } from './normalization'
+import { buildArticlePalletKey, normalizeArticleKey, resolveStorageOrigin } from './normalization'
 import type {
   ArticleAnalysisResult,
   CatalogArticle,
@@ -240,8 +240,8 @@ export async function exportWarehouseComparisonWorkbook(args: {
           text(row.description),
           number(row.oloQuantity),
           number(row.servicaQuantity),
-          row.coveragePeriods === undefined ? text('-') : number(row.coveragePeriods),
-          text(args.comments[row.article] || row.automaticComment),
+          row.coveragePeriods === undefined ? text('—') : number(row.coveragePeriods),
+          text(comparisonCommentForArticle(args.comments, row.article) || row.automaticComment),
         ]),
       ],
     },
@@ -368,7 +368,7 @@ function buildOriginSheets(
         'Estado transito',
       ]),
       ...rows.flatMap((item) =>
-        item.pallets
+        sortOriginPallets(item.pallets)
           .filter((pallet) => resolveStorageOrigin(pallet.storageZone) === origin)
           .map((pallet) => [
             text(item.row.article),
@@ -460,21 +460,38 @@ function describeZones(row: TransferLikeRow): string {
 }
 
 function transitState(article: string, pallets: PalletInventoryDetail[], pendingPalletKeys?: Set<string>): string {
-  if (!pendingPalletKeys || pendingPalletKeys.size === 0 || pallets.length === 0) {
-    return 'Disponible'
+  if (pallets.length === 0) {
+    return 'Sin palets'
+  }
+
+  if (!pendingPalletKeys || pendingPalletKeys.size === 0) {
+    return 'Nuevo'
   }
 
   const pendingCount = pallets.filter((pallet) =>
-    pendingPalletKeys.has(`${article.trim().toUpperCase()}|${pallet.pallet.trim().toUpperCase()}`),
+    pendingPalletKeys.has(buildArticlePalletKey(article, pallet.pallet)),
   ).length
 
   if (pendingCount === 0) {
-    return 'Disponible'
+    return 'Nuevo'
   }
   if (pendingCount === pallets.length) {
-    return 'En transito'
+    return 'Pendiente'
   }
-  return 'Parcial en transito'
+  return `Parcial (${formatNumber(pendingCount)}/${formatNumber(pallets.length)})`
+}
+
+function comparisonCommentForArticle(comments: Record<string, string>, article: string): string {
+  return comments[article]?.trim() ?? comments[normalizeArticleKey(article)]?.trim() ?? ''
+}
+
+function sortOriginPallets(pallets: PalletInventoryDetail[]): PalletInventoryDetail[] {
+  return [...pallets].sort((a, b) =>
+    a.location.localeCompare(b.location) ||
+    a.storageZone.localeCompare(b.storageZone) ||
+    (a.validationDate ?? '').localeCompare(b.validationDate ?? '') ||
+    a.pallet.localeCompare(b.pallet),
+  )
 }
 
 function formatNumber(value: number): string {
