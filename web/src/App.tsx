@@ -278,7 +278,7 @@ function App() {
       horizonPeriods,
       thresholds: settings.thresholds,
       satelliteZones: settings.satelliteZones,
-      ignoredStorageZones: [],
+      ignoredStorageZones: settings.excludedZones,
       pendingTransitQuantities: pendingQuantities,
       unavailablePalletKeys,
       availablePeriods: transferForecast.availablePeriods,
@@ -290,6 +290,7 @@ function App() {
     pendingQuantities,
     selectedPeriod,
     settings.satelliteZones,
+    settings.excludedZones,
     settings.thresholds,
     transferForecast,
     transferInventory,
@@ -305,7 +306,7 @@ function App() {
       inventory: expeditionInventory.positions,
       lines: expeditionReport.lines,
       satelliteZones: settings.satelliteZones,
-      ignoredStorageZones: [],
+      ignoredStorageZones: settings.excludedZones,
       pendingTransitQuantities: pendingQuantities,
       unavailablePalletKeys,
     })
@@ -313,6 +314,7 @@ function App() {
     expeditionInventory,
     expeditionReport,
     pendingQuantities,
+    settings.excludedZones,
     settings.satelliteZones,
     unavailablePalletKeys,
   ])
@@ -327,11 +329,11 @@ function App() {
       forecast: comparisonForecast.entries,
       selectedPeriod: selectedComparisonPeriod,
       availablePeriods: comparisonForecast.availablePeriods,
-      ignoredStorageZones: [],
+      ignoredStorageZones: settings.excludedZones,
       descriptions: comparisonDescriptions,
       granularity: comparisonForecast.granularity,
     })
-  }, [comparisonDescriptions, comparisonForecast, comparisonInventory, selectedComparisonPeriod])
+  }, [comparisonDescriptions, comparisonForecast, comparisonInventory, selectedComparisonPeriod, settings.excludedZones])
 
   const comparisonColumns = useMemo<TableColumn<WarehouseComparisonRow>[]>(
     () => [
@@ -1656,7 +1658,7 @@ function ExpedicionesView(props: {
         exportLabel="Descargar marcados"
       />
       <div className="table-wrap">
-        <table>
+        <table className="expeditions-table">
           <thead>
             <tr>
               <th></th>
@@ -1678,6 +1680,7 @@ function ExpedicionesView(props: {
               const key = rowKey('expedition', row)
               const prepared = isPrepared(row, props.preparedSet)
               const quantity = props.selectedQuantity(row)
+              const expeditionNumbers = splitExpeditionNumbers(row.expeditionNumber)
               return (
                 <tr key={key}>
                   <td>
@@ -1689,9 +1692,25 @@ function ExpedicionesView(props: {
                       onChange={(event) => props.onToggleOrdered(row, event.currentTarget.checked)}
                     />
                   </td>
-                  <td>
-                    <button className="link-button" type="button" onClick={() => props.onCopyExpeditions(row)}>
-                      {row.expeditionNumber || '-'}
+                  <td className="expedition-cell">
+                    <button
+                      className="expedition-list-button"
+                      title="Copiar expediciones"
+                      type="button"
+                      onClick={() => props.onCopyExpeditions(row)}
+                    >
+                      {expeditionNumbers.length > 0
+                        ? (
+                          <>
+                            {expeditionNumbers.slice(0, 2).map((number) => (
+                              <span className="expedition-token" key={number}>{number}</span>
+                            ))}
+                            {expeditionNumbers.length > 2 && (
+                              <span className="expedition-more">+{expeditionNumbers.length - 2}</span>
+                            )}
+                          </>
+                        )
+                        : <span className="expedition-token">-</span>}
                     </button>
                   </td>
                   <td className="mono">{row.article}</td>
@@ -2011,6 +2030,7 @@ function SettingsView(props: {
   onTarimaFile: (file: File) => void | Promise<void>
 }) {
   const [satelliteZones, setSatelliteZones] = useState(props.settings.satelliteZones.join('\n'))
+  const [excludedZones, setExcludedZones] = useState(props.settings.excludedZones.join('\n'))
   const [redPercent, setRedPercent] = useState(props.settings.thresholds.redPercent)
   const [healthyPercent, setHealthyPercent] = useState(props.settings.thresholds.healthyPercent)
   const [preparedText, setPreparedText] = useState(formatPreparedText(props.settings.preparedArticles))
@@ -2023,6 +2043,11 @@ function SettingsView(props: {
       <div className="settings-panel">
         <h2>Zonas satelite</h2>
         <textarea value={satelliteZones} onChange={(event) => setSatelliteZones(event.target.value)} />
+      </div>
+      <div className="settings-panel">
+        <h2>Zonas excluidas del inventario</h2>
+        <p className="settings-help">Una zona por linea. Puede usar el codigo de zona o el nombre completo.</p>
+        <textarea value={excludedZones} onChange={(event) => setExcludedZones(event.target.value)} />
       </div>
       <div className="settings-panel">
         <h2>Umbrales</h2>
@@ -2072,7 +2097,7 @@ function SettingsView(props: {
           props.onSave({
             company: props.settings.company,
             satelliteZones: splitLines(satelliteZones),
-            excludedZones: props.settings.excludedZones,
+            excludedZones: splitLines(excludedZones),
             thresholds: { redPercent, healthyPercent },
             preparedArticles: parsePreparedText(preparedText),
             tarimaSizes: parseTarimaText(tarimaText),
@@ -2703,6 +2728,7 @@ function simulateCombinedScenario(
       horizonMonths,
       safetyBufferPercent,
       satelliteZones: settingsByCompany[item].satelliteZones,
+      ignoredStorageZones: settingsByCompany[item].excludedZones,
     })
 
     if (item === 'EPA') {
@@ -2860,6 +2886,7 @@ function settingsStateKey(settings: AppSettings): string {
   return [
     settings.company,
     settings.satelliteZones.join('|'),
+    settings.excludedZones.join('|'),
     settings.thresholds.redPercent,
     settings.thresholds.healthyPercent,
     settings.preparedArticles.length,
@@ -2885,7 +2912,7 @@ function sectionSubtitle(view: ViewKey): string {
     transito: 'Pallets enviados y confirmacion de recibido.',
     comparativa: 'Inventario OLO contra SERVICA con cobertura por periodo.',
     simulacion: 'Carga estimada de traslado por horizonte.',
-    ajustes: 'Umbrales, zonas satelite, alistado satelital y tamanos de tarima.',
+    ajustes: 'Umbrales, zonas satelite, zonas excluidas, alistado satelital y tamanos de tarima.',
   }[view]
 }
 

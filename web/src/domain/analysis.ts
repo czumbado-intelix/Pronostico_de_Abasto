@@ -535,6 +535,7 @@ export function simulateScenario(args: {
   horizonMonths: number
   safetyBufferPercent: number
   satelliteZones?: string[]
+  ignoredStorageZones?: string[]
 }): ScenarioResult {
   const start = parsePeriodDate(args.selectedPeriod)
   if (!start) {
@@ -550,7 +551,7 @@ export function simulateScenario(args: {
     .sort((a, b) => a.period.localeCompare(b.period))
 
   const factor = 1 + Math.max(0, args.safetyBufferPercent) / 100
-  const summaries = summarizeInventory(args.inventory, args.satelliteZones, [])
+  const summaries = summarizeInventory(args.inventory, args.satelliteZones, args.ignoredStorageZones)
   const scenarioPeriods = periods.map(({ period }) => {
     const periodForecast = args.forecast.filter((entry) => entry.period === period)
     const demand = periodForecast.reduce((sum, entry) => sum + entry.quantity, 0) * factor

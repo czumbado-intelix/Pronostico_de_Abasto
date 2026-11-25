@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  analyzeExpediciones,
   analyzeWeeklyForecast,
   outstandingPalletKeys,
   pendingTransitQuantities,
+  simulateScenario,
   summarizeInventory,
 } from './analysis'
 import { defaultExcludedZones, defaultSatelliteZones, defaultThresholds } from './defaults'
@@ -92,5 +94,64 @@ describe('web analysis port', () => {
     expect(article?.principalInventoryQuantity).toBe(0)
     expect(article?.pendingTransitQuantity).toBe(25)
     expect(article?.calculatedTransferNeedQuantity).toBe(0)
+  })
+
+  it('applies excluded inventory zones to expediciones', () => {
+    const result = analyzeExpediciones({
+      inventory: [
+        {
+          article: '10000001',
+          storageZone: 'ZA99-ZONA BLOQUEADA',
+          quantity: 8,
+          description: '',
+          pallet: 'P1',
+          palletType: 'MULART',
+          location: '',
+        },
+      ],
+      lines: [
+        {
+          article: '10000001',
+          description: 'Articulo prueba',
+          quantity: 8,
+          expeditionNumber: '20000001',
+          requestedQuantity: 8,
+          preparedQuantity: 0,
+          situation: 'DISP',
+        },
+      ],
+      satelliteZones: [],
+      ignoredStorageZones: ['ZA99'],
+    })
+
+    const row = result.lines.find((line) => line.article === '10000001')
+    expect(row?.principalInventoryQuantity).toBe(0)
+    expect(row?.transferSuggestionQuantity).toBe(0)
+    expect(row?.remainingShortageAfterTransfer).toBe(8)
+  })
+
+  it('applies excluded inventory zones to simulation', () => {
+    const result = simulateScenario({
+      inventory: [
+        {
+          article: '10000001',
+          storageZone: 'ZA99-ZONA BLOQUEADA',
+          quantity: 8,
+          description: '',
+          pallet: 'P1',
+          palletType: 'MULART',
+          location: '',
+        },
+      ],
+      forecast: [{ article: '10000001', period: '2026-11-01', quantity: 8 }],
+      availablePeriods: ['2026-11-01'],
+      selectedPeriod: '2026-11-01',
+      horizonMonths: 1,
+      safetyBufferPercent: 0,
+      satelliteZones: ['ZA99'],
+      ignoredStorageZones: ['ZA99'],
+    })
+
+    expect(result.periods[0]?.transferLoad).toBe(0)
   })
 })
