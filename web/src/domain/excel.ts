@@ -1,4 +1,4 @@
-import readXlsxFile, { type Row } from 'read-excel-file/browser'
+import { strFromU8, unzipSync } from 'fflate'
 import { normalizeHeader, parseNumber } from './normalization'
 import type {
   CatalogArticle,
@@ -12,7 +12,7 @@ import type {
   TarimaSizeEntry,
 } from './types'
 
-type SheetRows = Row[]
+type SheetRows = unknown[][]
 type WorkbookSheets = SheetRows[]
 
 const articleHeaders = ['Articulo', 'Articulos', 'Prod', 'Producto', 'Item code', 'Item', 'Codigo', 'Cod articulo']
@@ -50,7 +50,159 @@ const situationHeaders = ['Situacion', 'Situación']
 const companyHeaders = ['Id Compania', 'Id Compañía', 'Compania', 'Compañía']
 
 export async function readWorkbook(file: File): Promise<WorkbookSheets> {
-  return (await readXlsxFile(file)).map((sheet) => sheet.data)
+  const archive = unzipSync(new Uint8Array(await file.arrayBuffer()))
+  const sharedStrings = parseSharedStringsXml(readArchiveText(archive, 'xl/sharedStrings.xml'))
+  const sheets = parseWorkbookSheetPaths(
+    readArchiveText(archive, 'xl/workbook.xml'),
+    readArchiveText(archive, 'xl/_rels/workbook.xml.rels'),
+  )
+
+  const workbook = sheets
+    .map((sheetPath) => readArchiveText(archive, sheetPath))
+    .filter(Boolean)
+    .map((sheetXml) => parseSheetXml(sheetXml, sharedStrings))
+
+  if (workbook.length === 0) {
+    throw new Error('El archivo de Excel no contiene hojas legibles.')
+  }
+
+  return workbook
+}
+
+function readArchiveText(archive: Record<string, Uint8Array>, path: string): string {
+  const content = archive[path]
+  return content ? strFromU8(content) : ''
+}
+
+function parseWorkbookSheetPaths(workbookXml: string, relsXml: string): string[] {
+  const workbookDocument = parseXmlDocument(workbookXml)
+  const relsDocument = parseXmlDocument(relsXml)
+  const relationshipTargets = new Map<string, string>()
+
+  for (const relationship of elementsByLocalName(relsDocument, 'Relationship')) {
+    const id = relationship.getAttribute('Id') ?? ''
+    const target = relationship.getAttribute('Target') ?? ''
+    if (id && target) {
+      relationshipTargets.set(id, normalizeWorkbookTarget(target))
+    }
+  }
+
+  return elementsByLocalName(workbookDocument, 'sheet')
+    .map((sheet) => sheet.getAttribute('r:id') ?? sheet.getAttribute('id') ?? '')
+    .map((relationshipId) => relationshipTargets.get(relationshipId) ?? '')
+    .filter(Boolean)
+}
+
+function normalizeWorkbookTarget(target: string): string {
+  const normalized = target.replace(/\\/g, '/').replace(/^\//, '')
+  return normalized.startsWith('xl/') ? normalized : `xl/${normalized}`
+}
+
+function parseSharedStringsXml(xml: string): string[] {
+  if (!xml) {
+    return []
+  }
+
+  const document = parseXmlDocument(xml)
+  return elementsByLocalName(document, 'si').map((item) => readTextNodes(item))
+}
+
+function parseSheetXml(xml: string, sharedStrings: string[]): SheetRows {
+  const document = parseXmlDocument(xml)
+  const rows: SheetRows = []
+
+  for (const rowElement of elementsByLocalName(document, 'row')) {
+    const rowNumber = parsePositiveInteger(rowElement.getAttribute('r')) ?? rows.length + 1
+    const row: unknown[] = []
+    let nextColumn = 0
+
+    for (const cellElement of childElementsByLocalName(rowElement, 'c')) {
+      const referenceColumn = parseCellColumnIndex(cellElement.getAttribute('r') ?? '')
+      const columnIndex = referenceColumn ?? nextColumn
+      const value = readCellValue(cellElement, sharedStrings)
+      row[columnIndex] = value
+      nextColumn = columnIndex + 1
+    }
+
+    while (rows.length < rowNumber - 1) {
+      rows.push([])
+    }
+    rows[rowNumber - 1] = row
+  }
+
+  return rows
+}
+
+function readCellValue(cellElement: Element, sharedStrings: string[]): unknown {
+  const type = cellElement.getAttribute('t') ?? ''
+  if (type === 'inlineStr') {
+    return readTextNodes(cellElement)
+  }
+
+  const value = firstChildText(cellElement, 'v')
+  if (!value) {
+    return ''
+  }
+
+  if (type === 's') {
+    return sharedStrings[Number(value)] ?? ''
+  }
+  if (type === 'b') {
+    return value === '1'
+  }
+  if (type === 'd') {
+    const date = new Date(value)
+    return Number.isNaN(date.valueOf()) ? value : date
+  }
+
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : value
+}
+
+function readTextNodes(element: Element): string {
+  const values = elementsByLocalName(element, 't')
+    .map((item) => item.textContent ?? '')
+    .filter(Boolean)
+  return values.length > 0 ? values.join('') : (element.textContent ?? '')
+}
+
+function firstChildText(element: Element, localName: string): string {
+  return childElementsByLocalName(element, localName)[0]?.textContent?.trim() ?? ''
+}
+
+function parseXmlDocument(xml: string): Document {
+  const document = new DOMParser().parseFromString(xml, 'application/xml')
+  const error = elementsByLocalName(document, 'parsererror')[0]
+  if (error) {
+    throw new Error(`No se pudo leer la estructura interna del Excel: ${error.textContent?.trim() ?? 'XML invalido'}`)
+  }
+  return document
+}
+
+function elementsByLocalName(root: Document | Element, localName: string): Element[] {
+  return [...root.querySelectorAll('*')].filter((element) => element.localName === localName)
+}
+
+function childElementsByLocalName(root: Element, localName: string): Element[] {
+  return [...root.children].filter((element) => element.localName === localName)
+}
+
+function parseCellColumnIndex(reference: string): number | undefined {
+  const match = reference.match(/^([A-Za-z]+)/)
+  if (!match) {
+    return undefined
+  }
+
+  let index = 0
+  for (const letter of match[1].toUpperCase()) {
+    index = index * 26 + letter.charCodeAt(0) - 64
+  }
+  return index - 1
+}
+
+function parsePositiveInteger(value: string | null): number | undefined {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
 }
 
 export async function parseInventoryFile(file: File): Promise<InventoryWorkbook> {

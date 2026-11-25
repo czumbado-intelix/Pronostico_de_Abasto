@@ -16,10 +16,10 @@
     "backup:remote": "powershell -ExecutionPolicy Bypass -File ./scripts/Export-D1Backup.ps1"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "lucide-react": "^1.77.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "read-excel-file": "^9.3.20",
     "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
