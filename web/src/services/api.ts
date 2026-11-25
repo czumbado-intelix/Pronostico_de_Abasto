@@ -70,16 +70,21 @@ export async function loadSettings(company: Company): Promise<AppSettings> {
 }
 
 export async function saveSettings(settings: AppSettings): Promise<AppSettings> {
-  writeLocal(settingsKey(settings.company), settings)
+  const normalized = normalizeSettings(settings.company, settings)
   try {
     const response = await fetch(`/api/settings/${settings.company}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(settings),
+      body: JSON.stringify(normalized),
     })
-    return response.ok ? ((await response.json()) as AppSettings) : settings
-  } catch {
-    return settings
+    if (!response.ok) {
+      throw new Error(await responseError(response, 'No se pudieron guardar los ajustes en la nube.'))
+    }
+    const saved = normalizeSettings(settings.company, (await response.json()) as AppSettings)
+    writeLocal(settingsKey(settings.company), saved)
+    return saved
+  } catch (error) {
+    throw error instanceof Error ? error : new Error('No se pudieron guardar los ajustes en la nube.')
   }
 }
 
@@ -447,8 +452,8 @@ function normalizeSettings(company: Company, settings: Partial<AppSettings>): Ap
   const defaults = defaultSettings(company)
   return {
     company,
-    satelliteZones: Array.isArray(settings.satelliteZones) ? settings.satelliteZones : defaults.satelliteZones,
-    excludedZones: Array.isArray(settings.excludedZones) ? settings.excludedZones : defaults.excludedZones,
+    satelliteZones: Array.isArray(settings.satelliteZones) ? cleanStringList(settings.satelliteZones) : defaults.satelliteZones,
+    excludedZones: Array.isArray(settings.excludedZones) ? cleanStringList(settings.excludedZones) : defaults.excludedZones,
     thresholds: settings.thresholds ?? defaults.thresholds,
     preparedArticles: Array.isArray(settings.preparedArticles) ? settings.preparedArticles : [],
     tarimaSizes: Array.isArray(settings.tarimaSizes) ? settings.tarimaSizes : [],

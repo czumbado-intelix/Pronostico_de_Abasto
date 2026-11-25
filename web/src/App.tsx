@@ -773,11 +773,11 @@ function App() {
     const normalized = {
       ...next,
       company,
-      excludedZones: [],
+      satelliteZones: normalizeStringList(next.satelliteZones),
+      excludedZones: normalizeStringList(next.excludedZones),
       preparedArticles: normalizeCatalogArticles(next.preparedArticles),
       tarimaSizes: normalizeTarimaSizes(next.tarimaSizes),
     }
-    setSettingsByCompany((current) => ({ ...current, [company]: normalized }))
     const saved = await saveSettings(normalized)
     setSettingsByCompany((current) => ({ ...current, [company]: saved }))
     setNotice('Ajustes guardados.')
@@ -1346,7 +1346,7 @@ function App() {
           <SettingsView
             key={settingsStateKey(settings)}
             settings={settings}
-            onSave={(next) => void persistSettings(next)}
+            onSave={(next) => runBusy('Guardando ajustes...', () => persistSettings(next))}
             onPreparedFile={handlePreparedArticles}
             onTarimaFile={handleTarimaSizes}
           />
@@ -2047,7 +2047,7 @@ function SimulationView(props: {
 
 function SettingsView(props: {
   settings: AppSettings
-  onSave: (settings: AppSettings) => void
+  onSave: (settings: AppSettings) => void | Promise<void>
   onPreparedFile: (file: File) => void | Promise<void>
   onTarimaFile: (file: File) => void | Promise<void>
 }) {
@@ -2880,6 +2880,10 @@ function normalizeTarimaSizes(items: TarimaSizeEntry[]): TarimaSizeEntry[] {
     }
   }
   return [...byArticle.values()].sort((a, b) => a.article.localeCompare(b.article))
+}
+
+function normalizeStringList(items: string[]): string[] {
+  return [...new Set(items.map((item) => item.trim()).filter(Boolean))]
 }
 
 function normalizeTarimaCode(value: string): string {
